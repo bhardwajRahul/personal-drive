@@ -12,7 +12,7 @@ export default function SearchBar({ handleSearch }) {
                     <input
                         type="text"
                         id="searchbox"
-                        className="border border-gray-300 rounded-md p-1 md:p-2 sm:pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 w-28 sm:w-44 md:w-52"
+                        className="border border-gray-300 rounded-md p-1 md:p-2 pr-5 sm:pr-8 md:pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 w-20 sm:w-32 md:w-52"
                         placeholder="&#128270;"
                         value={searchValue}
                         onChange={(e) => setSearchValue(e.target.value)}
@@ -21,7 +21,7 @@ export default function SearchBar({ handleSearch }) {
                         <button
                             type="button"
                             onClick={clearSearch}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="absolute right-1 sm:right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-500 p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-800"
                         >
                             &#x2715;
                         </button>

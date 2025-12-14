@@ -3,7 +3,7 @@ import FileBrowserSection from "@/Pages/Drive/Components/FileBrowserSection.jsx"
 
 export default function DriveHome({ files, path, token }) {
     return (
-        <div className="w-full">
+        <div className="">
             <Header />
             <div className="max-w-7xl mx-auto  bg-gray-800 text-gray-200">
                 <div className="md:px-5 px-1">

@@ -3,7 +3,7 @@ import { Link } from "@inertiajs/react";
 
 export default function GuestLayout({ children }) {
     return (
-        <div className="flex min-h-screen flex-col items-center  pt-6 sm:justify-center sm:pt-0 bg-gray-900 w-full">
+        <div className="flex min-h-screen flex-col items-center  pt-6 sm:justify-center sm:pt-0 bg-gray-900">
             <div>
                 <Link href="/public">
                     <ApplicationLogo className="h-20 w-20 fill-current text-gray-500" />

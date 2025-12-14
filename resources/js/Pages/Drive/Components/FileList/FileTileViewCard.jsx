@@ -61,7 +61,7 @@ const FileTileViewCard = React.memo(function FileTileViewCard({
                 {/* File Icon */}
                 {file.is_dir === 0 && (
                     <div
-                        className="flex cursor-pointer justify-center items-center transition-transform duration-200 h-[220px]"
+                        className="flex cursor-pointer justify-center items-center transition-transform duration-200 h-[170px]"
                         onClick={() => handleFileClick(file)}
                     >
                         {file.has_thumbnail &&
@@ -87,7 +87,7 @@ const FileTileViewCard = React.memo(function FileTileViewCard({
                                           : "")
                                     : path + "/") + file.filename
                             }
-                            className={`flex items-center  cursor-pointer h-[220px] w-[220px] justify-center`}
+                            className={`flex items-center  cursor-pointer h-[170px] w-[170px] justify-center`}
                             preserveScroll
                         >
                             <Folder
