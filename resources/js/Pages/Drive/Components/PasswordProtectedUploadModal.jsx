@@ -18,7 +18,7 @@ const defaultZipName = () => {
 
 // Full path used inside the zip, preserving folder structure.
 const relPathOf = (file) =>
-    (file.path || file.webkitRelativePath || file.name).replace(/^\/+/, "");
+    (file.path || file.webkitRelativePath || file.name).replace(/^\.?\/+/, "");
 
 const PasswordProtectedUploadModal = ({
     isModalOpen,
@@ -49,7 +49,7 @@ const PasswordProtectedUploadModal = ({
         });
     };
 
-    const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop: addFiles,
         noClick: true,
         noKeyboard: true,
@@ -164,51 +164,29 @@ const PasswordProtectedUploadModal = ({
 
                 <div
                     {...getRootProps()}
-                    className={`rounded-md border-2 border-dashed p-4 text-center text-sm cursor-pointer ${
+                    className={`rounded-md border-2 border-dashed p-4 text-center text-sm ${
                         isDragActive
                             ? "border-green-400 bg-gray-800"
                             : "border-gray-600 bg-gray-800/40"
                     }`}
-                    onClick={open}
                 >
                     <input {...getInputProps()} />
                     <p>Drag files or folders here, or</p>
-                    <div className="mt-2 flex justify-center gap-2">
+                    <div className="mt-2 flex justify-center">
                         <button
                             type="button"
-                            onClick={(ev) => {
-                                ev.stopPropagation();
-                                document.getElementById("ppFileInput").click();
-                            }}
+                            onClick={() =>
+                                document.getElementById("ppFileInput").click()
+                            }
                             className="bg-blue-700 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
                         >
                             Select Files
-                        </button>
-                        <button
-                            type="button"
-                            onClick={(ev) => {
-                                ev.stopPropagation();
-                                document
-                                    .getElementById("ppFolderInput")
-                                    .click();
-                            }}
-                            className="bg-blue-700 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
-                        >
-                            Select Folder
                         </button>
                     </div>
                     <input
                         id="ppFileInput"
                         type="file"
                         multiple
-                        className="hidden"
-                        onChange={handleSelectInput}
-                    />
-                    <input
-                        id="ppFolderInput"
-                        type="file"
-                        webkitdirectory="true"
-                        directory="true"
                         className="hidden"
                         onChange={handleSelectInput}
                     />
