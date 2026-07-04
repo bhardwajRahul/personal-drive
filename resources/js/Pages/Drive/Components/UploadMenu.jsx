@@ -8,6 +8,7 @@ import useThumbnailGenerator from "@/Pages/Drive/Hooks/useThumbnailGenerator.jsx
 import { UploadCloudIcon } from "lucide-react";
 import FileDropzone from "@/Pages/Drive/Components/DropZone.jsx";
 import ReplaceAbortModal from "@/Pages/Drive/Components/ReplaceAbortModal.jsx";
+import PasswordProtectedUploadModal from "@/Pages/Drive/Components/PasswordProtectedUploadModal.jsx";
 import UploadQueueDialog from "@/Pages/Drive/Components/UploadQueueDialog.jsx";
 import useUploadQueue from "@/Pages/Drive/Hooks/useUploadQueue.jsx";
 
@@ -33,6 +34,7 @@ const UploadMenu = ({ path, setStatusMessage, files }) => {
     const menuRef = useRef(null);
     useClickOutside(menuRef, () => setIsMenuOpen(false));
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isPwUploadModalOpen, setIsPwUploadModalOpen] = useState(false);
     const isFile = useRef(false);
 
     function uploadFiles(selectedFileForUpload, onProgress) {
@@ -96,7 +98,9 @@ const UploadMenu = ({ path, setStatusMessage, files }) => {
 
     return (
         <>
-            <FileDropzone onFilesAccepted={handleDroppedFiles} />
+            {!isPwUploadModalOpen && (
+                <FileDropzone onFilesAccepted={handleDroppedFiles} />
+            )}
             {isReplaceAbortModalOpen && (
                 <ReplaceAbortModal
                     isReplaceAbortModalOpen={isReplaceAbortModalOpen}
@@ -163,6 +167,16 @@ const UploadMenu = ({ path, setStatusMessage, files }) => {
                             >
                                 Upload Folder
                             </button>
+                            <button
+                                onClick={() => {
+                                    setIsPwUploadModalOpen(true);
+                                    setIsMenuOpen(false);
+                                }}
+                                className="text-left block w-full px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 active:bg-gray-800"
+                                role="menuitem"
+                            >
+                                Upload Password Protected
+                            </button>
                         </div>
                     </div>
                 )}
@@ -171,6 +185,12 @@ const UploadMenu = ({ path, setStatusMessage, files }) => {
                     setIsModalOpen={setIsModalOpen}
                     path={path}
                     isFile={isFile}
+                />
+                <PasswordProtectedUploadModal
+                    isModalOpen={isPwUploadModalOpen}
+                    setIsModalOpen={setIsPwUploadModalOpen}
+                    path={path}
+                    setStatusMessage={setStatusMessage}
                 />
 
                 <div className="relative inline-block">
