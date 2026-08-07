@@ -17,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use UnexpectedValueException;
 
 class AdminConfigController extends Controller
 {
@@ -66,8 +67,15 @@ class AdminConfigController extends Controller
         session()->flash('message', $updateStoragePathRes['message']);
         session()->flash('status', $updateStoragePathRes['status']);
         if ($updateStoragePathRes['status']) {
-            LocalFile::clearTable();
-            $this->localFileStatsService->generateStats();
+            try {
+                LocalFile::clearTable();
+                $this->localFileStatsService->generateStats();
+            } catch (UnexpectedValueException) {
+                return $this->error(
+                    'Storage scan failed because a file or folder cannot be accessed. Check its permissions and try again.'
+                );
+            }
+
             return redirect()->route('drive');
         }
 
