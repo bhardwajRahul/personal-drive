@@ -172,7 +172,7 @@ const PasswordProtectedUploadModal = ({
                 >
                     <input {...getInputProps()} />
                     <p>Drag files or folders here, or</p>
-                    <div className="mt-2 flex justify-center">
+                    <div className="mt-2 flex justify-center gap-2">
                         <button
                             type="button"
                             onClick={() =>
@@ -182,11 +182,28 @@ const PasswordProtectedUploadModal = ({
                         >
                             Select Files
                         </button>
+                        <button
+                            type="button"
+                            onClick={() =>
+                                document.getElementById("ppFolderInput").click()
+                            }
+                            className="bg-blue-700 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                        >
+                            Select Folder
+                        </button>
                     </div>
                     <input
                         id="ppFileInput"
                         type="file"
                         multiple
+                        className="hidden"
+                        onChange={handleSelectInput}
+                    />
+                    <input
+                        id="ppFolderInput"
+                        type="file"
+                        webkitdirectory="true"
+                        directory="true"
                         className="hidden"
                         onChange={handleSelectInput}
                     />
