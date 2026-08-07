@@ -1,15 +1,15 @@
-import React, {useEffect, useState} from "react";
-import {usePage} from "@inertiajs/react";
+import React, { useEffect, useState } from "react";
+import { usePage } from "@inertiajs/react";
 
-const AlertBox = React.memo(function AlertBox({message, alertStatus = true}) {
+const AlertBox = React.memo(function AlertBox({ message, alertStatus = true }) {
     let icon;
     let bgStatus = "bg-gray-500";
-    let {flash, errors} = usePage().props;
+    let { flash, errors } = usePage().props;
     const [alertBoxData, setAlertBoxData] = useState(flash);
     // Effect to update messageToPrint when props change
     useEffect(() => {
         if (!flash.message && Object.keys(errors).length === 0 && message) {
-            let alertBoxDataCopy = {message: message, status: alertStatus};
+            let alertBoxDataCopy = { message: message, status: alertStatus };
             setAlertBoxData(alertBoxDataCopy);
         } else {
             let alertBoxDataCopy = Object.assign({}, flash);
@@ -21,13 +21,16 @@ const AlertBox = React.memo(function AlertBox({message, alertStatus = true}) {
                 alertBoxDataCopy.status = false;
             }
             setAlertBoxData(alertBoxDataCopy);
-            // flash.message = "";
-            // flash.status = true;
+            // Consume the server response so a later re-render (e.g. when only
+            // `message` changes) can't repaint this same stale flash/error.
+            flash.message = "";
+            Object.keys(errors).forEach((k) => delete errors[k]);
         }
-        setTimeout(() => {
-            setAlertBoxData({message: "", status: true});
+        const timer = setTimeout(() => {
+            setAlertBoxData({ message: "", status: true });
         }, 10000);
-    }, [flash, errors, message]);
+        return () => clearTimeout(timer);
+    }, [flash, errors, message, alertStatus]);
 
     switch (alertBoxData.status) {
         case false:
