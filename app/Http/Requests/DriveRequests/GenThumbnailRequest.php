@@ -10,9 +10,9 @@ class GenThumbnailRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'ids' => 'required|array|min:1',
+            'ids' => 'required|array|min:1|max:15',
             'ids.*' => CommonRequest::localFileIdRules(),
-            'path' => CommonRequest::pathRules()
+            'path' => CommonRequest::pathRules(),
         ];
     }
 }
