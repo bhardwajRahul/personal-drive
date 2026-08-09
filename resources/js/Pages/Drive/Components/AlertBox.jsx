@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { usePage } from "@inertiajs/react";
 
 const AlertBox = React.memo(function AlertBox({ message, alertStatus = true }) {
@@ -6,25 +6,28 @@ const AlertBox = React.memo(function AlertBox({ message, alertStatus = true }) {
     let bgStatus = "bg-gray-500";
     let { flash, errors } = usePage().props;
     const [alertBoxData, setAlertBoxData] = useState(flash);
+    const shownFlash = useRef(null);
+    const shownErrors = useRef(null);
     // Effect to update messageToPrint when props change
     useEffect(() => {
-        if (!flash.message && Object.keys(errors).length === 0 && message) {
-            let alertBoxDataCopy = { message: message, status: alertStatus };
-            setAlertBoxData(alertBoxDataCopy);
-        } else {
-            let alertBoxDataCopy = Object.assign({}, flash);
+        const hasErrors = Object.keys(errors).length > 0;
+        const hasNewServerAlert =
+            (flash.message && shownFlash.current !== flash) ||
+            (hasErrors && shownErrors.current !== errors);
 
-            if (errors && Object.keys(errors).length > 0) {
-                alertBoxDataCopy.message = Object.values(errors)
-                    .flat()
-                    .join(", ");
-                alertBoxDataCopy.status = false;
+        if (hasNewServerAlert) {
+            const nextAlert = { ...flash };
+
+            if (hasErrors) {
+                nextAlert.message = Object.values(errors).flat().join(", ");
+                nextAlert.status = false;
             }
-            setAlertBoxData(alertBoxDataCopy);
-            // Consume the server response so a later re-render (e.g. when only
-            // `message` changes) can't repaint this same stale flash/error.
-            flash.message = "";
-            Object.keys(errors).forEach((k) => delete errors[k]);
+
+            setAlertBoxData(nextAlert);
+            shownFlash.current = flash;
+            shownErrors.current = errors;
+        } else if (message) {
+            setAlertBoxData({ message, status: alertStatus });
         }
         const timer = setTimeout(() => {
             setAlertBoxData({ message: "", status: true });
