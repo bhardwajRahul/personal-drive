@@ -32,12 +32,13 @@ class LocalFileStatsService
     }
 
     public function getSplFileStats(
-        string $itemName,
-        bool $isDir,
-        string $publicPath,
-        string $privatePath,
+        string      $itemName,
+        bool        $isDir,
+        string      $publicPath,
+        string      $privatePath,
         SplFileInfo $file
-    ): array {
+    ): array
+    {
         return [
             'filename' => $itemName,
             'is_dir' => $isDir ? 1 : 0,
@@ -139,9 +140,9 @@ class LocalFileStatsService
     {
         $localFile->update(
             [
-            'size' => $file->getSize(),
-            'is_dir' => $file->isDir(),
-            'file_type' => $this->getFileType($file),
+                'size' => $file->getSize(),
+                'is_dir' => $file->isDir(),
+                'file_type' => $this->getFileType($file),
             ]
         );
     }
