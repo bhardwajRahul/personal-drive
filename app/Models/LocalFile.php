@@ -108,7 +108,10 @@ class LocalFile extends Model
 
     public static function getByPublicPathLikeSearch(string $search): Builder
     {
-        return self::where('public_path', 'like', $search . '%');
+        return self::where(function ($query) use ($search) {
+            $query->where('public_path', $search)
+                ->orWhere('public_path', 'like', $search . '/%');
+        });
     }
 
     public static function getForFileObj(SplFileInfo $file)

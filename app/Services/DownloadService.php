@@ -77,7 +77,7 @@ class DownloadService
         $noFileIdsInRootDir = SharedFile::hasFileIdsInShare($shareId, $fileIds);
         $filesInPath = Share::getFilenamesByIds($shareId, $fileIds);
 
-        if (!$noFileIdsInRootDir && $filesInPath->isEmpty()) {
+        if (!$noFileIdsInRootDir && $filesInPath->count() !== count($fileIds)) {
             return false;
         }
         return true;
