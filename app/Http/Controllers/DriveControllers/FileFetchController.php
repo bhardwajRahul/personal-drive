@@ -6,13 +6,13 @@ use App\Exceptions\PersonalDriveExceptions\FetchFileException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DriveRequests\FetchFileRequest;
 use App\Models\LocalFile;
-use App\Services\DownloadService;
 use App\Services\LocalFileStatsService;
+use App\Services\ShareAuthorizationService;
 use App\Services\ThumbnailService;
 use App\Traits\FlashMessages;
 use App\Traits\GuestResourceAuthorize;
-use Iman\Streamer\VideoStreamer;
 use Illuminate\Support\Facades\Session;
+use Iman\Streamer\VideoStreamer;
 
 class FileFetchController extends Controller
 {
@@ -20,17 +20,19 @@ class FileFetchController extends Controller
     use GuestResourceAuthorize;
 
     protected LocalFileStatsService $localFileStatsService;
+
     private ThumbnailService $thumbnailService;
-    private DownloadService $downloadService;
+
+    private ShareAuthorizationService $shareAuthorizationService;
 
     public function __construct(
         LocalFileStatsService $localFileStatsService,
         ThumbnailService $thumbnailService,
-        DownloadService $downloadService
+        ShareAuthorizationService $shareAuthorizationService
     ) {
         $this->localFileStatsService = $localFileStatsService;
         $this->thumbnailService = $thumbnailService;
-        $this->downloadService = $downloadService;
+        $this->shareAuthorizationService = $shareAuthorizationService;
     }
 
     /**
@@ -40,7 +42,7 @@ class FileFetchController extends Controller
     {
         $fileId = $request->validated('id');
 
-        if (Session::get('share_id') && !$this->guestVerified([$fileId], $this->downloadService)) {
+        if (Session::get('share_id') && ! $this->guestVerified([$fileId], $this->shareAuthorizationService)) {
             throw FetchFileException::notFoundStream();
         }
         $file = $this->handleHashRequest($request);
@@ -52,9 +54,9 @@ class FileFetchController extends Controller
                 },
                 200,
                 [
-                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
-                'Pragma' => 'no-cache',
-                'Content-Type' => 'text/plain',
+                    'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+                    'Pragma' => 'no-cache',
+                    'Content-Type' => 'text/plain',
                 ]
             )->send();
         } else {
@@ -70,7 +72,7 @@ class FileFetchController extends Controller
         $fileId = $request->validated('id');
 
         $file = LocalFile::find($fileId);
-        if (!$file || !$file->file_type) {
+        if (! $file || ! $file->file_type) {
             throw FetchFileException::notFoundStream();
         }
 
@@ -82,8 +84,13 @@ class FileFetchController extends Controller
      */
     public function getThumb(FetchFileRequest $request): void
     {
+        $fileId = $request->validated('id');
+
+        if (Session::get('share_id') && ! $this->guestVerified([$fileId], $this->shareAuthorizationService)) {
+            throw FetchFileException::notFoundStream();
+        }
         $file = $this->handleHashRequest($request);
-        if (!$file->has_thumbnail) {
+        if (! $file->has_thumbnail) {
             throw FetchFileException::notFoundThumb();
         }
         $filePrivatePathName = $this->thumbnailService->getFullFileThumbnailPath($file);

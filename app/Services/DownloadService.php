@@ -3,8 +3,6 @@
 namespace App\Services;
 
 use App\Exceptions\PersonalDriveExceptions\FetchFileException;
-use App\Models\Share;
-use App\Models\SharedFile;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 use RecursiveDirectoryIterator;
@@ -21,20 +19,21 @@ class DownloadService
         if ($this->isSingleFile($localFiles)) {
             return $localFiles[0]->getPrivatePathNameForFile();
         }
+
         return $this->createZipFile($localFiles);
     }
 
     public function isSingleFile(Collection $localFiles): bool
     {
-        return count($localFiles) === 1 && !$localFiles[0]->is_dir;
+        return count($localFiles) === 1 && ! $localFiles[0]->is_dir;
     }
 
     public function createZipFile(Collection $localFiles): string
     {
-        $outputZipPath = '/tmp' . DS .
-            'personal_drive_' . Str::random(4) . '_' . now()->format('Y_m_d') . '.zip';
+        $outputZipPath = '/tmp'.DS.
+            'personal_drive_'.Str::random(4).'_'.now()->format('Y_m_d').'.zip';
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
 
         if ($zip->open($outputZipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             throw FetchFileException::couldNotZip();
@@ -42,7 +41,7 @@ class DownloadService
 
         foreach ($localFiles as $localFile) {
             $pathName = $localFile->getPrivatePathNameForFile();
-            if (!file_exists($pathName)) {
+            if (! file_exists($pathName)) {
                 continue;
             }
 
@@ -70,16 +69,5 @@ class DownloadService
         $zip->close();
 
         return $outputZipPath;
-    }
-
-    public function hasGuestShareFileIdPermissions(int $shareId, array $fileIds): bool
-    {
-        $noFileIdsInRootDir = SharedFile::hasFileIdsInShare($shareId, $fileIds);
-        $filesInPath = Share::getFilenamesByIds($shareId, $fileIds);
-
-        if (!$noFileIdsInRootDir && $filesInPath->count() !== count($fileIds)) {
-            return false;
-        }
-        return true;
     }
 }

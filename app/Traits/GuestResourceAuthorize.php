@@ -2,21 +2,22 @@
 
 namespace App\Traits;
 
-use App\Services\DownloadService;
+use App\Services\ShareAuthorizationService;
 use Illuminate\Support\Facades\Session;
 
 trait GuestResourceAuthorize
 {
-    protected function guestVerified(array $fileIds, DownloadService $downloadService): bool
+    protected function guestVerified(array $fileIds, ShareAuthorizationService $shareAuthorizationService): bool
     {
         $shareId = Session::get('share_id');
-        if (!$shareId) {
+        if (! $shareId) {
             return false;
         }
 
-        if (!$downloadService->hasGuestShareFileIdPermissions($shareId, $fileIds)) {
+        if (! $shareAuthorizationService->allowsFiles($shareId, $fileIds)) {
             return false;
         }
+
         return true;
     }
 }

@@ -4,8 +4,8 @@ namespace Tests\Feature\Controllers\DriveControllers;
 
 use App\Http\Controllers\DriveControllers\FileFetchController;
 use App\Models\LocalFile;
-use App\Services\DownloadService;
 use App\Services\LocalFileStatsService;
+use App\Services\ShareAuthorizationService;
 use App\Services\ThumbnailService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -72,7 +72,7 @@ class ThumbnailControllerTest extends BaseFeatureTest
             FileFetchController::class.'[streamFile]', [
                 app(LocalFileStatsService::class),
                 app(ThumbnailService::class),
-                app(DownloadService::class),
+                app(ShareAuthorizationService::class),
             ]
         );
 

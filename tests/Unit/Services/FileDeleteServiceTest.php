@@ -111,6 +111,29 @@ class FileDeleteServiceTest extends TestCase
         }
     }
 
+    public function testIsDirSubDirOfStorageRejectsCanonicalPathOutsideStorage()
+    {
+        $base = sys_get_temp_dir() . DS . 'personal-drive-' . bin2hex(random_bytes(4));
+        $storage = $base . DS . 'storage';
+        $outside = $base . DS . 'outside';
+        mkdir($base);
+        mkdir($storage);
+        mkdir($outside);
+
+        try {
+            $this->assertFalse(
+                $this->fileDeleteService->isDirSubDirOfStorage(
+                    $storage . DS . '..' . DS . 'outside',
+                    $storage
+                )
+            );
+        } finally {
+            rmdir($outside);
+            rmdir($storage);
+            rmdir($base);
+        }
+    }
+
     public function testDeleteFilesDeletesFile()
     {
         $file1 = LocalFile::factory()->create(

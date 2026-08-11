@@ -7,6 +7,7 @@ use App\Http\Requests\DriveRequests\DownloadRequest;
 use App\Models\LocalFile;
 use App\Services\DownloadService;
 use App\Services\PathService;
+use App\Services\ShareAuthorizationService;
 use App\Traits\GuestResourceAuthorize;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
@@ -23,12 +24,16 @@ class DownloadController
 
     protected DownloadService $downloadService;
 
+    protected ShareAuthorizationService $shareAuthorizationService;
+
     public function __construct(
         PathService $pathService,
-        DownloadService $downloadService
+        DownloadService $downloadService,
+        ShareAuthorizationService $shareAuthorizationService,
     ) {
         $this->pathService = $pathService;
         $this->downloadService = $downloadService;
+        $this->shareAuthorizationService = $shareAuthorizationService;
     }
 
     public function index(DownloadRequest $request): BinaryFileResponse|JsonResponse
@@ -38,9 +43,10 @@ class DownloadController
         if ($localFiles->isEmpty()) {
             return ResponseHelper::json('Could not find files to download', false);
         }
-        if (Session::get('share_id') && !$this->guestVerified($fileKeyArray, $this->downloadService)) {
+        if (Session::get('share_id') && ! $this->guestVerified($fileKeyArray, $this->shareAuthorizationService)) {
             return ResponseHelper::json('Error: authorization issue', false);
         }
+
         return $this->downloadValidFiles($localFiles);
     }
 
@@ -48,13 +54,14 @@ class DownloadController
     {
         try {
             $downloadFilePath = $this->downloadService->generateDownloadPath($localFiles);
-            if (!file_exists($downloadFilePath)) {
+            if (! file_exists($downloadFilePath)) {
                 return ResponseHelper::json('Perhaps trying to download empty dir ? ', false);
             }
+
             return Response::download(
                 $downloadFilePath,
                 basename($downloadFilePath),
-                ['Content-Disposition' => 'attachment; filename="' . basename($downloadFilePath) . '"']
+                ['Content-Disposition' => 'attachment; filename="'.basename($downloadFilePath).'"']
             )->deleteFileAfterSend();
         } catch (Exception $e) {
             return ResponseHelper::json($e->getMessage(), false);

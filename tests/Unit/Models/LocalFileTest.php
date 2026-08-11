@@ -312,6 +312,14 @@ class LocalFileTest extends TestCase
             'user_id' => $user->id
             ]
         );
+        $wildcardSibling = LocalFile::factory()->create(
+            [
+            'filename' => 'wildcard_sibling.txt',
+            'is_dir' => false,
+            'public_path' => '/root/parentXdir',
+            'user_id' => $user->id
+            ]
+        );
         $otherFile = LocalFile::factory()->create(
             [
             'filename' => 'other_file.txt',
@@ -325,6 +333,7 @@ class LocalFileTest extends TestCase
 
         $this->assertDatabaseMissing('local_files', ['id' => $childFile->id]);
         $this->assertDatabaseHas('local_files', ['id' => $prefixSibling->id]);
+        $this->assertDatabaseHas('local_files', ['id' => $wildcardSibling->id]);
         $this->assertDatabaseHas('local_files', ['id' => $otherFile->id]);
     }
 

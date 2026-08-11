@@ -2,10 +2,7 @@
 
 namespace Tests\Unit\Traits;
 
-use App\Models\Share;
-use App\Models\SharedFile;
-use App\Models\LocalFile;
-use App\Services\DownloadService;
+use App\Services\ShareAuthorizationService;
 use App\Traits\GuestResourceAuthorize;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Session;
@@ -14,21 +11,21 @@ use Tests\TestCase;
 
 class GuestResourceAuthorizeTest extends TestCase
 {
-    use RefreshDatabase, GuestResourceAuthorize;
+    use GuestResourceAuthorize, RefreshDatabase;
 
-    protected $downloadService;
+    protected ShareAuthorizationService $shareAuthorizationService;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->downloadService = Mockery::mock(DownloadService::class);
+        $this->shareAuthorizationService = Mockery::mock(ShareAuthorizationService::class);
     }
 
     public function test_returns_false_when_no_share_id_in_session()
     {
         Session::forget('share_id');
 
-        $result = $this->guestVerified(['file-1', 'file-2'], $this->downloadService);
+        $result = $this->guestVerified(['file-1', 'file-2'], $this->shareAuthorizationService);
 
         $this->assertFalse($result);
     }
@@ -37,13 +34,13 @@ class GuestResourceAuthorizeTest extends TestCase
     {
         Session::put('share_id', 1);
 
-        $this->downloadService
-            ->shouldReceive('hasGuestShareFileIdPermissions')
+        $this->shareAuthorizationService
+            ->shouldReceive('allowsFiles')
             ->with(1, ['file-1', 'file-2'])
             ->once()
             ->andReturn(false);
 
-        $result = $this->guestVerified(['file-1', 'file-2'], $this->downloadService);
+        $result = $this->guestVerified(['file-1', 'file-2'], $this->shareAuthorizationService);
 
         $this->assertFalse($result);
     }
@@ -52,13 +49,13 @@ class GuestResourceAuthorizeTest extends TestCase
     {
         Session::put('share_id', 1);
 
-        $this->downloadService
-            ->shouldReceive('hasGuestShareFileIdPermissions')
+        $this->shareAuthorizationService
+            ->shouldReceive('allowsFiles')
             ->with(1, ['file-1', 'file-2'])
             ->once()
             ->andReturn(true);
 
-        $result = $this->guestVerified(['file-1', 'file-2'], $this->downloadService);
+        $result = $this->guestVerified(['file-1', 'file-2'], $this->shareAuthorizationService);
 
         $this->assertTrue($result);
     }
@@ -67,13 +64,13 @@ class GuestResourceAuthorizeTest extends TestCase
     {
         Session::put('share_id', 5);
 
-        $this->downloadService
-            ->shouldReceive('hasGuestShareFileIdPermissions')
+        $this->shareAuthorizationService
+            ->shouldReceive('allowsFiles')
             ->with(5, ['file-1'])
             ->once()
             ->andReturn(true);
 
-        $result = $this->guestVerified(['file-1'], $this->downloadService);
+        $result = $this->guestVerified(['file-1'], $this->shareAuthorizationService);
 
         $this->assertTrue($result);
     }
@@ -82,13 +79,13 @@ class GuestResourceAuthorizeTest extends TestCase
     {
         Session::put('share_id', 10);
 
-        $this->downloadService
-            ->shouldReceive('hasGuestShareFileIdPermissions')
+        $this->shareAuthorizationService
+            ->shouldReceive('allowsFiles')
             ->with(10, ['file-1', 'file-2', 'file-3'])
             ->once()
             ->andReturn(true);
 
-        $result = $this->guestVerified(['file-1', 'file-2', 'file-3'], $this->downloadService);
+        $result = $this->guestVerified(['file-1', 'file-2', 'file-3'], $this->shareAuthorizationService);
 
         $this->assertTrue($result);
     }
@@ -97,13 +94,13 @@ class GuestResourceAuthorizeTest extends TestCase
     {
         Session::put('share_id', 1);
 
-        $this->downloadService
-            ->shouldReceive('hasGuestShareFileIdPermissions')
+        $this->shareAuthorizationService
+            ->shouldReceive('allowsFiles')
             ->with(1, [])
             ->once()
             ->andReturn(false);
 
-        $result = $this->guestVerified([], $this->downloadService);
+        $result = $this->guestVerified([], $this->shareAuthorizationService);
 
         $this->assertFalse($result);
     }
@@ -112,13 +109,13 @@ class GuestResourceAuthorizeTest extends TestCase
     {
         Session::put('share_id', 999);
 
-        $this->downloadService
-            ->shouldReceive('hasGuestShareFileIdPermissions')
+        $this->shareAuthorizationService
+            ->shouldReceive('allowsFiles')
             ->with(999, ['file-1'])
             ->once()
             ->andReturn(true);
 
-        $result = $this->guestVerified(['file-1'], $this->downloadService);
+        $result = $this->guestVerified(['file-1'], $this->shareAuthorizationService);
         $this->assertTrue($result);
     }
 
@@ -126,13 +123,13 @@ class GuestResourceAuthorizeTest extends TestCase
     {
         Session::put('share_id', 42);
 
-        $this->downloadService
-            ->shouldReceive('hasGuestShareFileIdPermissions')
+        $this->shareAuthorizationService
+            ->shouldReceive('allowsFiles')
             ->with(42, ['file-1'])
             ->once()
             ->andReturn(true);
 
-        $result = $this->guestVerified(['file-1'], $this->downloadService);
+        $result = $this->guestVerified(['file-1'], $this->shareAuthorizationService);
 
         $this->assertTrue($result);
     }
@@ -141,13 +138,13 @@ class GuestResourceAuthorizeTest extends TestCase
     {
         Session::put('share_id', 1);
 
-        $this->downloadService
-            ->shouldReceive('hasGuestShareFileIdPermissions')
+        $this->shareAuthorizationService
+            ->shouldReceive('allowsFiles')
             ->with(1, ['abc', 'def'])
             ->once()
             ->andReturn(true);
 
-        $result = $this->guestVerified(['abc', 'def'], $this->downloadService);
+        $result = $this->guestVerified(['abc', 'def'], $this->shareAuthorizationService);
 
         $this->assertTrue($result);
     }
