@@ -75,20 +75,40 @@ class FileDeleteServiceTest extends TestCase
 
     public function testIsDirSubDirOfStorage()
     {
-        $storage = '/var/www';
-        $path = '/var/www/project';
-        $this->assertNotFalse(
-            $this->fileDeleteService->isDirSubDirOfStorage($path, $storage)
+        $this->assertTrue(
+            $this->fileDeleteService->isDirSubDirOfStorage(
+                $this->tempDir,
+                sys_get_temp_dir()
+            )
         );
     }
 
     public function testIsDirSubDirOfStorageFalseWhenNotUnderStorage()
     {
-        $storage = '/var/www';
-        $path = '/home/user';
         $this->assertFalse(
-            $this->fileDeleteService->isDirSubDirOfStorage($path, $storage)
+            $this->fileDeleteService->isDirSubDirOfStorage(
+                sys_get_temp_dir(),
+                $this->tempDir
+            )
         );
+    }
+
+    public function testIsDirSubDirOfStorageRejectsPrefixSibling()
+    {
+        $suffix = bin2hex(random_bytes(4));
+        $storage = sys_get_temp_dir() . DS . 'personal-drive-' . $suffix;
+        $prefixSibling = $storage . '-backup';
+        mkdir($storage);
+        mkdir($prefixSibling);
+
+        try {
+            $this->assertFalse(
+                $this->fileDeleteService->isDirSubDirOfStorage($prefixSibling, $storage)
+            );
+        } finally {
+            rmdir($prefixSibling);
+            rmdir($storage);
+        }
     }
 
     public function testDeleteFilesDeletesFile()

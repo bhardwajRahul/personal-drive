@@ -213,15 +213,42 @@ class LocalFileTest extends TestCase
         $this->assertContains($file2->id, $ids);
     }
 
-    public function test_get_by_public_path_like_search_returns_correct_builder()
+    public function test_get_by_public_path_like_search_returns_exact_path_and_descendants_only()
     {
         $user = User::factory()->create();
-        $file1 = LocalFile::factory()->create(['public_path' => '/folder/sub', 'user_id' => $user->id]);
-        $file2 = LocalFile::factory()->create(['public_path' => '/folder/another', 'user_id' => $user->id]);
+        $exactPath = LocalFile::factory()->create(['public_path' => '/folder', 'user_id' => $user->id]);
+        $child = LocalFile::factory()->create(['public_path' => '/folder/sub', 'user_id' => $user->id]);
+        LocalFile::factory()->create(['public_path' => '/folderish/sub', 'user_id' => $user->id]);
+        LocalFile::factory()->create(['public_path' => '/Folder/sub', 'user_id' => $user->id]);
 
         $builder = LocalFile::getByPublicPathLikeSearch('/folder');
+        $results = $builder->get();
+
         $this->assertInstanceOf(Builder::class, $builder);
-        $this->assertCount(2, $builder->get());
+        $this->assertCount(2, $results);
+        $this->assertTrue($results->contains($exactPath));
+        $this->assertTrue($results->contains($child));
+    }
+
+    public function test_get_by_public_path_like_search_treats_sql_wildcards_literally()
+    {
+        $user = User::factory()->create();
+        $underscoreChild = LocalFile::factory()->create(
+            ['public_path' => '/folder_/child', 'user_id' => $user->id]
+        );
+        LocalFile::factory()->create(['public_path' => '/folderX/child', 'user_id' => $user->id]);
+        $percentChild = LocalFile::factory()->create(
+            ['public_path' => '/100%/child', 'user_id' => $user->id]
+        );
+        LocalFile::factory()->create(['public_path' => '/100percent/child', 'user_id' => $user->id]);
+
+        $underscoreResults = LocalFile::getByPublicPathLikeSearch('/folder_')->get();
+        $percentResults = LocalFile::getByPublicPathLikeSearch('/100%')->get();
+
+        $this->assertCount(1, $underscoreResults);
+        $this->assertTrue($underscoreResults->contains($underscoreChild));
+        $this->assertCount(1, $percentResults);
+        $this->assertTrue($percentResults->contains($percentChild));
     }
 
     public function test_get_for_file_obj_returns_correct_file()
@@ -258,7 +285,7 @@ class LocalFileTest extends TestCase
         );
     }
 
-    public function test_delete_using_public_path_deletes_correct_files()
+    public function test_delete_using_public_path_deletes_descendants_only()
     {
         $user = User::factory()->create();
         $parentDir = LocalFile::factory()->create(
@@ -277,6 +304,14 @@ class LocalFileTest extends TestCase
             'user_id' => $user->id
             ]
         );
+        $prefixSibling = LocalFile::factory()->create(
+            [
+            'filename' => 'sibling_file.txt',
+            'is_dir' => false,
+            'public_path' => '/root/parent_directory',
+            'user_id' => $user->id
+            ]
+        );
         $otherFile = LocalFile::factory()->create(
             [
             'filename' => 'other_file.txt',
@@ -289,6 +324,7 @@ class LocalFileTest extends TestCase
         $parentDir->deleteUsingPublicPath();
 
         $this->assertDatabaseMissing('local_files', ['id' => $childFile->id]);
+        $this->assertDatabaseHas('local_files', ['id' => $prefixSibling->id]);
         $this->assertDatabaseHas('local_files', ['id' => $otherFile->id]);
     }
 

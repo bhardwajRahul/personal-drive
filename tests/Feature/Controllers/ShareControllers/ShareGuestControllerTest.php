@@ -4,6 +4,8 @@ namespace Tests\Feature\Controllers\ShareControllers;
 
 use App\Models\LocalFile;
 use App\Models\Share;
+use App\Services\ThumbnailService;
+use Mockery;
 use Tests\Feature\BaseFeatureTest;
 
 class ShareGuestControllerTest extends BaseFeatureTest
@@ -57,15 +59,18 @@ class ShareGuestControllerTest extends BaseFeatureTest
     public function test_share_fetch_file_fail()
     {
         $slug = 'testslug';
-        list($toShareFileIds) = $this->getDataForMakingShare('password', 7, 1);
-        $this->createShare($toShareFileIds, 'password', 7, $slug);
+        $sharedFile = LocalFile::where('filename', 'ace.txt')
+            ->where('public_path', '')
+            ->firstOrFail();
+        $unsharedFile = LocalFile::where('filename', 'ace.txt')
+            ->where('public_path', 'foo')
+            ->firstOrFail();
+        $this->createShare([$sharedFile->id], 'password', 7, $slug);
         $this->logout();
 
         $this->postCheckPassword($slug, 'password');
 
-        $allFiles = LocalFile::all()->pluck('id')->toArray();
-
-        $response = $this->get(route('drive.fetch-file', ['id' => $allFiles[1], 'slug' => $slug]));
+        $response = $this->get(route('drive.fetch-file', ['id' => $unsharedFile->id, 'slug' => $slug]));
         $response->assertRedirect(
             route(
                 'rejected',
@@ -108,8 +113,13 @@ class ShareGuestControllerTest extends BaseFeatureTest
     public function test_share_download_fail()
     {
         $slug = 'test-slug';
-        list($toShareFileIds) = $this->getDataForMakingShare();
-        $this->createShare(array_slice($toShareFileIds, 0, 2), 'password', 7, $slug);
+        $sharedFile = LocalFile::where('filename', 'ace.txt')
+            ->where('public_path', '')
+            ->firstOrFail();
+        $unsharedFile = LocalFile::where('filename', 'ace.txt')
+            ->where('public_path', 'foo')
+            ->firstOrFail();
+        $this->createShare([$sharedFile->id], 'password', 7, $slug);
         $this->logout();
 
         $this->postCheckPassword($slug, 'password');
@@ -122,12 +132,11 @@ class ShareGuestControllerTest extends BaseFeatureTest
                 ->where('slug', $slug)
         );
 
-        $allFiles = LocalFile::all()->pluck('id')->toArray();
-
         $response = $this->post(
             '/download-files',
             [
-                'fileList' => [$allFiles[3]],
+                '_token' => csrf_token(),
+                'fileList' => [$unsharedFile->id],
                 'slug' => $slug,
             ]
         );
@@ -141,33 +150,33 @@ class ShareGuestControllerTest extends BaseFeatureTest
         );
     }
 
-    public function test_share_download_valid_invalid_mix()
+    public function test_share_download_rejects_mixed_authorized_and_unauthorized_file_ids()
     {
         $slug = 'test-slug';
-        list($toShareFileIds) = $this->getDataForMakingShare('password', 0, 3);
-        $this->createShare($toShareFileIds, 'password', 7, $slug);
+        $sharedDirectory = LocalFile::where('filename', 'bar')
+            ->where('public_path', '')
+            ->where('is_dir', true)
+            ->firstOrFail();
+        $authorizedFile = LocalFile::where('filename', '1.txt')
+            ->where('public_path', 'bar')
+            ->firstOrFail();
+        $unauthorizedFile = LocalFile::where('filename', 'ace.txt')
+            ->where('public_path', 'foo')
+            ->firstOrFail();
+        $this->createShare([$sharedDirectory->id], 'password', 7, $slug);
         $this->logout();
 
         $this->postCheckPassword($slug, 'password');
 
-        $this->get('/shared/' . $slug);
-        $response = $this->followingRedirects()->get('/shared/' . $slug);
-        $response->assertInertia(
-            fn($page) => $page
-                ->component('Drive/ShareFilesGuestHome')
-                ->where('slug', $slug)
-        );
-
-        $allFiles = LocalFile::all()->pluck('id')->toArray();
-
         $response = $this->post(
             '/download-files',
             [
-                //$allFiles[3] is not shared, but in a different sub-dir
-                'fileList' => [$allFiles[0], $allFiles[1], $allFiles[3] ],
+                '_token' => csrf_token(),
+                'fileList' => [$authorizedFile->id, $unauthorizedFile->id],
                 'slug' => $slug,
             ]
         );
+
         $response->assertStatus(200);
         $response->assertJson(
             [
@@ -175,16 +184,180 @@ class ShareGuestControllerTest extends BaseFeatureTest
                 'message' => 'Error: authorization issue',
             ]
         );
+    }
+
+    public function test_share_download_allows_direct_file_and_directory_descendant_together()
+    {
+        $slug = 'test-slug';
+        $sharedFile = LocalFile::where('filename', 'ace.txt')
+            ->where('public_path', '')
+            ->firstOrFail();
+        $sharedDirectory = LocalFile::where('filename', 'foo')
+            ->where('public_path', '')
+            ->where('is_dir', true)
+            ->firstOrFail();
+        $descendant = LocalFile::where('filename', '1.txt')
+            ->where('public_path', 'foo/bar')
+            ->firstOrFail();
+        $this->createShare([$sharedFile->id, $sharedDirectory->id], 'password', 7, $slug);
+        $this->logout();
+
+        $this->postCheckPassword($slug, 'password');
 
         $response = $this->post(
             '/download-files',
             [
-                'fileList' => [$allFiles[0], $allFiles[1], $allFiles[2] ],
+                '_token' => csrf_token(),
+                'fileList' => [$sharedFile->id, $descendant->id],
                 'slug' => $slug,
             ]
         );
-        $response->assertStatus(200);
+
+        $response->assertOk();
         $response->assertHeaderContains('Content-Disposition', 'attachment; filename=personal_drive_');
+    }
+
+    public function test_share_download_rejects_similarly_prefixed_sibling_directory()
+    {
+        $slug = 'test-slug';
+        $sharedDirectory = LocalFile::where('filename', 'bar')
+            ->where('public_path', '')
+            ->where('is_dir', true)
+            ->firstOrFail();
+        $siblingFile = LocalFile::where('filename', '1.txt')
+            ->where('public_path', 'barbar')
+            ->firstOrFail();
+        $this->createShare([$sharedDirectory->id], 'password', 7, $slug);
+        $this->logout();
+
+        $this->postCheckPassword($slug, 'password');
+
+        $response = $this->post(
+            '/download-files',
+            [
+                '_token' => csrf_token(),
+                'fileList' => [$siblingFile->id],
+                'slug' => $slug,
+            ]
+        );
+
+        $response->assertOk();
+        $response->assertJson(
+            [
+                'status' => false,
+                'message' => 'Error: authorization issue',
+            ]
+        );
+    }
+
+    public function test_share_download_treats_sql_wildcards_in_directory_names_literally()
+    {
+        $slug = 'test-slug';
+        $sharedDirectory = LocalFile::where('filename', 'bar_')
+            ->where('public_path', '')
+            ->where('is_dir', true)
+            ->firstOrFail();
+        $siblingFile = LocalFile::where('filename', '1.txt')
+            ->where('public_path', 'barX')
+            ->firstOrFail();
+        $this->createShare([$sharedDirectory->id], 'password', 7, $slug);
+        $this->logout();
+
+        $this->postCheckPassword($slug, 'password');
+
+        $response = $this->post(
+            '/download-files',
+            [
+                '_token' => csrf_token(),
+                'fileList' => [$siblingFile->id],
+                'slug' => $slug,
+            ]
+        );
+
+        $response->assertOk();
+        $response->assertJson(
+            [
+                'status' => false,
+                'message' => 'Error: authorization issue',
+            ]
+        );
+    }
+
+    public function test_share_listing_rejects_similarly_prefixed_sibling_directory()
+    {
+        $slug = 'test-slug';
+        $sharedDirectory = LocalFile::where('filename', 'bar')
+            ->where('public_path', '')
+            ->where('is_dir', true)
+            ->firstOrFail();
+        $this->createShare([$sharedDirectory->id], 'password', 7, $slug);
+        $this->logout();
+
+        $this->postCheckPassword($slug, 'password');
+
+        $response = $this->get('/shared/' . $slug . '/barbar');
+
+        $response->assertOk();
+        $response->assertInertia(
+            fn($page) => $page
+                ->component('Drive/ShareFilesGuestHome')
+                ->where('files', [])
+        );
+    }
+
+    public function test_share_fetch_rejects_similarly_prefixed_sibling_directory()
+    {
+        $slug = 'test-slug';
+        $sharedDirectory = LocalFile::where('filename', 'bar')
+            ->where('public_path', '')
+            ->where('is_dir', true)
+            ->firstOrFail();
+        $siblingFile = LocalFile::where('filename', '1.txt')
+            ->where('public_path', 'barbar')
+            ->firstOrFail();
+        $siblingFile->update(['file_type' => 'text']);
+        $this->createShare([$sharedDirectory->id], 'password', 7, $slug);
+        $this->logout();
+
+        $this->postCheckPassword($slug, 'password');
+
+        $response = $this->get(
+            route('drive.fetch-file', ['id' => $siblingFile->id, 'slug' => $slug])
+        );
+
+        $response->assertRedirect(
+            route('rejected', ['message' => 'Could not find file to send'])
+        );
+    }
+
+    public function test_share_thumbnail_rejects_file_outside_share()
+    {
+        $slug = 'test-slug';
+        $sharedFile = LocalFile::where('filename', 'ace.txt')
+            ->where('public_path', '')
+            ->firstOrFail();
+        $unsharedFile = LocalFile::where('filename', 'ace.txt')
+            ->where('public_path', 'foo')
+            ->firstOrFail();
+        $unsharedFile->file_type = 'image';
+        $unsharedFile->has_thumbnail = true;
+        $unsharedFile->save();
+        $this->createShare([$sharedFile->id], 'password', 7, $slug);
+        $this->logout();
+
+        $this->postCheckPassword($slug, 'password');
+
+        $thumbnailService = Mockery::mock(ThumbnailService::class);
+        $thumbnailService->shouldReceive('getFullFileThumbnailPath')->andReturn('/path/that/does/not/exist');
+        $this->app->instance(ThumbnailService::class, $thumbnailService);
+
+        $response = $this->get(
+            route('drive.get-thumb', ['id' => $unsharedFile->id, 'slug' => $slug])
+        );
+
+        $response->assertRedirect(
+            route('rejected', ['message' => 'Could not find file to send'])
+        );
     }
 
     public function test_get_post_password_with_invalid_slug()
@@ -304,7 +477,7 @@ class ShareGuestControllerTest extends BaseFeatureTest
     {
         $fileNames = [
             'ace.txt', 'beta.txt', 'bar/1.txt', 'foo/ace.txt', 'foo/b.txt', 'foo/c.txt', 'foo/bar/1.txt',
-            'foo/bar/2.txt', 'barbar/1.txt'
+            'foo/bar/2.txt', 'barbar/1.txt', 'bar_/1.txt', 'barX/1.txt'
         ];
         parent::setUp();
         $this->makeUserUsingSetup();
