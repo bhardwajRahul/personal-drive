@@ -36,7 +36,7 @@ class FileDeleteService
         string $privateFilePathName,
         string $rootStoragePath
     ): bool {
-        if ($this->isDeletableDirectory($file, $privateFilePathName) 
+        if ($this->isDeletableDirectory($file, $privateFilePathName)
             && $this->isDirSubDirOfStorage($privateFilePathName, $rootStoragePath)
         ) {
             File::deleteDirectory($privateFilePathName);
@@ -51,9 +51,17 @@ class FileDeleteService
         return $file->is_dir && file_exists($privateFilePathName) && is_dir($privateFilePathName);
     }
 
-    public function isDirSubDirOfStorage(string $privateFilePathName, string $rootStoragePath): string|false
+    public function isDirSubDirOfStorage(string $privateFilePathName, string $rootStoragePath): bool
     {
-        return strstr($privateFilePathName, $rootStoragePath);
+        $old = strstr($privateFilePathName, $rootStoragePath);
+        $path = realpath($privateFilePathName);
+        $root = realpath($rootStoragePath);
+
+        if ($path === false || $root === false) {
+            return false;
+        }
+
+        return $path === $root || str_starts_with($path, rtrim($root, DS) . DS);
     }
 
     public function isDeletableFile(LocalFile $file): bool
