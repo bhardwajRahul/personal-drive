@@ -128,7 +128,7 @@ class LocalFile extends Model
 
     public function deleteUsingPublicPath()
     {
-        return $this->where('public_path', 'like', $this->getPublicPathPlusName() . '%')->delete();
+        return self::getByPublicPathLikeSearch($this->getPublicPathPlusName())->delete();
     }
 
     public function getPublicPathPlusName(string $customFileName = '', ?string $customPath = null): string
