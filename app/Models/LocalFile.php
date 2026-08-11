@@ -110,7 +110,7 @@ class LocalFile extends Model
     {
         return self::where(function ($query) use ($search) {
             $query->where('public_path', $search)
-                ->orWhere('public_path', 'like', $search . '/%');
+                ->orWhereRaw('instr(public_path, ?) = 1', [$search . DS]);
         });
     }
 

@@ -155,6 +155,53 @@ class ShareGuestControllerTest extends BaseFeatureTest
         );
     }
 
+    public function test_share_download_valid_invalid_mix()
+    {
+        $slug = 'test-slug';
+        list($toShareFileIds) = $this->getDataForMakingShare('password', 0, 3);
+        $this->createShare($toShareFileIds, 'password', 7, $slug);
+        $this->logout();
+
+        $this->postCheckPassword($slug, 'password');
+
+        $this->get('/shared/' . $slug);
+        $response = $this->followingRedirects()->get('/shared/' . $slug);
+        $response->assertInertia(
+            fn($page) => $page
+                ->component('Drive/ShareFilesGuestHome')
+                ->where('slug', $slug)
+        );
+
+        $allFiles = LocalFile::all()->pluck('id')->toArray();
+
+        $response = $this->post(
+            '/download-files',
+            [
+                //$allFiles[3] is not shared, but in a different sub-dir
+                'fileList' => [$allFiles[0], $allFiles[1], $allFiles[3] ],
+                'slug' => $slug,
+            ]
+        );
+        $response->assertStatus(200);
+        $response->assertJson(
+            [
+                'status' => false,
+                'message' => 'Error: authorization issue',
+            ]
+        );
+
+        $response = $this->post(
+            '/download-files',
+            [
+                'fileList' => [$allFiles[0], $allFiles[1], $allFiles[2] ],
+                'slug' => $slug,
+            ]
+        );
+        $response->assertStatus(200);
+        $response->assertHeaderContains('Content-Disposition', 'attachment; filename=personal_drive_');
+    }
+
+
     public function test_share_download_rejects_mixed_authorized_and_unauthorized_file_ids()
     {
         $slug = 'test-slug';
