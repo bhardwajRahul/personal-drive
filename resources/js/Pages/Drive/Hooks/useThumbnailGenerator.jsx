@@ -1,8 +1,26 @@
 import { router } from "@inertiajs/react";
 
+const BATCH_SIZE = 15;
+
 const useThumbnailGenerator = (files, path) => {
-    const generateThumbnails = async (ids) => {
-        await router.post("/gen-thumbs", { ids, path });
+    const generateThumbnails = (ids) => {
+        const idsReversed = [...ids].reverse();
+        const batch = idsReversed.slice(0, BATCH_SIZE);
+
+        router.post(
+            "/gen-thumbs",
+            { ids: batch, path },
+            {
+                only: ["files", "flash"],
+                preserveScroll: true,
+                onSuccess: () => {
+                    const remainingIds = idsReversed.slice(BATCH_SIZE);
+                    if (remainingIds.length > 0) {
+                        generateThumbnails(remainingIds);
+                    }
+                },
+            },
+        );
     };
 
     // Filter files that need thumbnails
@@ -14,7 +32,7 @@ const useThumbnailGenerator = (files, path) => {
         )
         .map((file) => file.id);
     if (thumbnailIds.length > 0) {
-        generateThumbnails(thumbnailIds, path);
+        generateThumbnails(thumbnailIds);
     }
 };
 

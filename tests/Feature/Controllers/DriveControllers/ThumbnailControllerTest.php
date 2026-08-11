@@ -17,19 +17,34 @@ class ThumbnailControllerTest extends BaseFeatureTest
     use RefreshDatabase;
 
     private $fileName = 'pic.png';
+
     private $videoFileName = 'vid.mp4';
 
     public function test_update_thumb_fail()
     {
         $response = $this->post(
             '/gen-thumbs', [
-            '_token' => csrf_token(),
-            'ids' => [(string) Str::ulid()],
+                '_token' => csrf_token(),
+                'ids' => [(string) Str::ulid()],
             ]
         );
         $response->assertSessionHas('status', false);
         $response->assertSessionHas('message', 'No thumbnails generated. No valid files found');
     }
+
+    public function test_update_thumb_rejects_more_than_fifteen_files()
+    {
+        $response = $this->post('/gen-thumbs', [
+            '_token' => csrf_token(),
+            'ids' => array_map(
+                fn () => (string) Str::ulid(),
+                range(1, 16)
+            ),
+        ]);
+
+        $response->assertSessionHasErrors('ids');
+    }
+
     public function test_get_thumb_fail()
     {
         $response = $this->get(route('drive.get-thumb', ['id' => (string) Str::ulid()]));
@@ -37,7 +52,7 @@ class ThumbnailControllerTest extends BaseFeatureTest
         $response->assertRedirect(
             route(
                 'rejected', [
-                'message' => 'Could not find file to send'
+                    'message' => 'Could not find file to send',
                 ]
             )
         );
@@ -48,16 +63,16 @@ class ThumbnailControllerTest extends BaseFeatureTest
         $id = LocalFile::getByName($this->fileName)->id;
         $response = $this->post(
             '/gen-thumbs', [
-            '_token' => csrf_token(),
-            'ids' => [$id],
+                '_token' => csrf_token(),
+                'ids' => [$id],
             ]
         );
         $response->assertRedirect(route('drive'));
         $mock = Mockery::mock(
-            FileFetchController::class . '[streamFile]', [
-            app(LocalFileStatsService::class),
-            app(ThumbnailService::class),
-            app(DownloadService::class),
+            FileFetchController::class.'[streamFile]', [
+                app(LocalFileStatsService::class),
+                app(ThumbnailService::class),
+                app(DownloadService::class),
             ]
         );
 
@@ -74,7 +89,7 @@ class ThumbnailControllerTest extends BaseFeatureTest
     {
         $res = $this->post(
             '/resync', [
-            '_token' => csrf_token(),
+                '_token' => csrf_token(),
             ]
         );
 
@@ -82,7 +97,7 @@ class ThumbnailControllerTest extends BaseFeatureTest
         $response->assertRedirect(
             route(
                 'rejected', [
-                'message' => 'Could not find thumbnail. Try Resync in settings'
+                    'message' => 'Could not find thumbnail. Try Resync in settings',
                 ]
             )
         );

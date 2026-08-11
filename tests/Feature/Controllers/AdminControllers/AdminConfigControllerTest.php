@@ -4,9 +4,12 @@ namespace Tests\Feature\Controllers\AdminControllers;
 
 use App\Models\Setting;
 use App\Services\FileOperationsService;
+use App\Services\LocalFileStatsService;
 use Illuminate\Testing\TestResponse;
 use Mockery;
 use Tests\Feature\BaseFeatureTest;
+use ReflectionProperty;
+use UnexpectedValueException;
 
 use const false;
 
@@ -59,6 +62,30 @@ class AdminConfigControllerTest extends BaseFeatureTest
         $this->settingMock->shouldReceive('updateStoragePath')->withAnyArgs()->andReturn(false);
         $response = $this->updateStoragePost(false);
         $this->assertSessionHas($response, 'Failed to save storage path setting');
+    }
+
+    public function test_update_shows_error_when_storage_scan_cannot_access_directory(): void
+    {
+        $statsService = Mockery::mock(LocalFileStatsService::class);
+        $statsService->shouldReceive('generateStats')
+            ->once()
+            ->andThrow(new UnexpectedValueException('Permission denied'));
+
+        $controller = app('router')
+            ->getRoutes()
+            ->getByName('admin-config.update')
+            ->getController();
+        $statsServiceProperty = new ReflectionProperty($controller, 'localFileStatsService');
+        $statsServiceProperty->setValue($controller, $statsService);
+
+        $response = $this->setStoragePath($this->newStoragePath);
+        $response->assertSessionHas('status', false);
+        $response->assertRedirect(route('admin-config', ['setupMode' => true]));
+
+        $this->assertSessionHas(
+            $response,
+            'Storage scan failed because a file or folder cannot be accessed. Check its permissions and try again.'
+        );
     }
 
     public function updateStoragePost($status = true): TestResponse
