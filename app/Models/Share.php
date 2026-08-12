@@ -117,15 +117,24 @@ class Share extends Model
 
     public static function getLimitByShareQuery($query, int $shareID): void
     {
+        $sharedPath = "l.public_path ||
+           CASE WHEN l.public_path <> '' THEN '/' ELSE '' END ||
+           l.filename";
         $query->select(DB::raw(1))
             ->from('local_files AS l')
             ->join('shared_files AS sf', 'l.id', '=', 'sf.file_id')
             ->join('shares AS s', 'sf.share_id', '=', 's.id')
             ->where('s.id', $shareID)
             ->whereRaw(
-                "local_files.public_path LIKE ( l.public_path ||
-                                CASE WHEN l.public_path <> '' THEN '/' ELSE '' END ||
-                                l.filename || '%')"
+                "( (local_files.id = sf.file_id)
+                   OR (
+                     l.is_dir = true
+                     AND instr(
+                         local_files.public_path || '/',
+                         ($sharedPath) || '/'
+                     ) = 1
+                 )
+                )"
             )
             ->limit(1);
     }

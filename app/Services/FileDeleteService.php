@@ -53,7 +53,6 @@ class FileDeleteService
 
     public function isDirSubDirOfStorage(string $privateFilePathName, string $rootStoragePath): bool
     {
-        $old = strstr($privateFilePathName, $rootStoragePath);
         $path = realpath($privateFilePathName);
         $root = realpath($rootStoragePath);
 
