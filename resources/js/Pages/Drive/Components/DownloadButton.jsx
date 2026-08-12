@@ -64,11 +64,14 @@ const DownloadButton = ({
             NProgress.done();
         } catch {
             NProgress.done(true);
+            setAlertStatus(false);
+            setStatusMessage("Download failed");
+            return;
         } finally {
-            setStatusMessage("");
             setSelectedFiles?.(new Set());
             setSelectAllToggle?.(false);
         }
+        setStatusMessage("");
         // Check if the response is JSON
         const contentType = response.headers["content-type"];
         if (contentType && contentType == "application/json") {
