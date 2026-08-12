@@ -27,7 +27,6 @@
         "ext-tokenizer": "*",
         "ext-xml": "*",
         "ext-zip": "*",
-        "aws/aws-sdk-php": "^3.331",
         "bacon/bacon-qr-code": "^3.0",
         "fakerphp/faker": "^1.23",
         "imanghafoori/laravel-video": "*",
