@@ -43,7 +43,7 @@ class DownloadController
         if ($localFiles->isEmpty()) {
             return ResponseHelper::json('Could not find files to download', false);
         }
-        if (Session::get('share_id') && ! $this->guestVerified($fileKeyArray, $this->shareAuthorizationService)) {
+        if (Session::get('share_id') && !$this->guestVerified($fileKeyArray, $this->shareAuthorizationService)) {
             return ResponseHelper::json('Error: authorization issue', false);
         }
 
@@ -54,15 +54,16 @@ class DownloadController
     {
         try {
             $downloadFilePath = $this->downloadService->generateDownloadPath($localFiles);
-            if (! file_exists($downloadFilePath)) {
+            if (!file_exists($downloadFilePath)) {
                 return ResponseHelper::json('Perhaps trying to download empty dir ? ', false);
             }
 
-            return Response::download(
+            $response = Response::download(
                 $downloadFilePath,
                 basename($downloadFilePath),
-                ['Content-Disposition' => 'attachment; filename="'.basename($downloadFilePath).'"']
-            )->deleteFileAfterSend();
+                ['Content-Disposition' => 'attachment; filename="' . basename($downloadFilePath) . '"']
+            );
+            return $this->downloadService->isSingleFile($localFiles) ? $response : $response->deleteFileAfterSend();
         } catch (Exception $e) {
             return ResponseHelper::json($e->getMessage(), false);
         }

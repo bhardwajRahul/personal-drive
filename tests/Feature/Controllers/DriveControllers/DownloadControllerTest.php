@@ -22,15 +22,20 @@ class DownloadControllerTest extends BaseFeatureTest
     public function test_index_downloads_single_file_successfully(): void
     {
         $firstFile = LocalFile::getByName('ace.txt')->firstOrFail();
+        $privatePath = $firstFile->getPrivatePathNameForFile();
 
         $response = $this->post(
             '/download-files', [
+            '_token' => csrf_token(),
             'fileList' => [$firstFile->id],
             ]
         );
 
         $response->assertStatus(200);
         $response->assertHeader('Content-Disposition', 'attachment; filename=ace.txt');
+        $response->streamedContent();
+
+        $this->assertFileExists($privatePath);
     }
 
     public function test_index_fails_with_non_existent_id(): void
