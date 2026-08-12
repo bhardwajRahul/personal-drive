@@ -86,7 +86,7 @@ class UploadService
 
     public function syncFileToStorage(SplFileInfo $tempFileSplInfo, string $sourceRoot, string $targetRoot): void
     {
-        $targetPath = str_replace($sourceRoot, $targetRoot, $tempFileSplInfo->getPathname());
+        $targetPath = Str::replaceFirst($sourceRoot, $targetRoot, $tempFileSplInfo->getPathname());
 
         if ($this->filesystem->exists($targetPath) 
             && $this->isFileFolderMisMatch($tempFileSplInfo->getPathname(), $targetPath)

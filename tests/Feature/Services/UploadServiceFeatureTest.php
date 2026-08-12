@@ -12,6 +12,7 @@ use App\Services\UploadService;
 use App\Services\PathService;
 use App\Services\LocalFileStatsService;
 use App\Services\ThumbnailService;
+use Symfony\Component\Finder\SplFileInfo;
 
 class UploadServiceFeatureTest extends BaseFeatureTest
 {
@@ -50,6 +51,27 @@ class UploadServiceFeatureTest extends BaseFeatureTest
 
         $this->assertFileExists($this->targetDir . '/sub/test.txt');
         $this->assertFileDoesNotExist($filePath);
+    }
+
+    public function testSyncFileToStorageReplacesOnlyFirstSourceRootOccurrence()
+    {
+        $relativePath = ltrim($this->tempRootDir, DS) . DS . 'test.txt';
+        $filePath = $this->tempRootDir . DS . $relativePath;
+        mkdir(dirname($filePath), 0777, true);
+        file_put_contents($filePath, 'dummy');
+
+        $this->statsService->shouldReceive('getFileItemDetails')->andReturn(
+            [
+            'filename' => 'test.txt', 'public_path' => $relativePath, 'private_path' => dirname($filePath),
+            'file_type' => 'text', 'is_dir' => '0', 'size' => '5', 'user_id' => 1,
+            ]
+        );
+        $this->thumbService->shouldReceive('genThumbnailsForFileIds')->andReturn(1);
+
+        $file = new SplFileInfo($filePath, dirname($filePath), basename($filePath));
+        $this->uploadService->syncFileToStorage($file, $this->tempRootDir, $this->targetDir);
+
+        $this->assertFileExists($this->targetDir . DS . $relativePath);
     }
 
     protected function setUp(): void
