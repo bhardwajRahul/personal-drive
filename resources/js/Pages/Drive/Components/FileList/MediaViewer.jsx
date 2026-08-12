@@ -153,6 +153,7 @@ const MediaViewer = ({
                         ((selectedFileType === "text" ||
                             selectedFileType === "empty") && (
                             <TxtViewer
+                                key={previewFile.id}
                                 previewFile={previewFile}
                                 slug={slug}
                                 isEditingRef={isEditingRef}
