@@ -15,6 +15,7 @@ use App\Traits\FlashMessages;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use UnexpectedValueException;
@@ -63,19 +64,23 @@ class AdminConfigController extends Controller
     {
         $storagePath = $request->validated('storage_path');
         $storagePath = trim(rtrim($storagePath, '/'));
-        $updateStoragePathRes = $this->adminConfigService->updateStoragePath($storagePath);
+        try {
+            $updateStoragePathRes = DB::transaction(function () use ($storagePath): array {
+                $result = $this->adminConfigService->updateStoragePath($storagePath);
+                if ($result['status']) {
+                    LocalFile::clearTable();
+                    $this->localFileStatsService->generateStats();
+                }
+                return $result;
+            });
+        } catch (UnexpectedValueException) {
+            return $this->error(
+                'Storage scan failed because a file or folder cannot be accessed. Check its permissions and try again.'
+            );
+        }
         session()->flash('message', $updateStoragePathRes['message']);
         session()->flash('status', $updateStoragePathRes['status']);
         if ($updateStoragePathRes['status']) {
-            try {
-                LocalFile::clearTable();
-                $this->localFileStatsService->generateStats();
-            } catch (UnexpectedValueException) {
-                return $this->error(
-                    'Storage scan failed because a file or folder cannot be accessed. Check its permissions and try again.'
-                );
-            }
-
             return redirect()->route('drive');
         }
 

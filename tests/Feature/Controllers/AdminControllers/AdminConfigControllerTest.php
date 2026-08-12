@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Controllers\AdminControllers;
 
+use App\Models\LocalFile;
 use App\Models\Setting;
 use App\Services\FileOperationsService;
 use App\Services\LocalFileStatsService;
@@ -66,6 +67,9 @@ class AdminConfigControllerTest extends BaseFeatureTest
 
     public function test_update_shows_error_when_storage_scan_cannot_access_directory(): void
     {
+        $this->uploadFile('', 'preserved.txt');
+        $file = LocalFile::firstOrFail();
+
         $statsService = Mockery::mock(LocalFileStatsService::class);
         $statsService->shouldReceive('generateStats')
             ->once()
@@ -86,6 +90,7 @@ class AdminConfigControllerTest extends BaseFeatureTest
             $response,
             'Storage scan failed because a file or folder cannot be accessed. Check its permissions and try again.'
         );
+        $this->assertDatabaseHas('local_files', ['id' => $file->id]);
     }
 
     public function updateStoragePost($status = true): TestResponse
