@@ -177,6 +177,7 @@ class ShareGuestControllerTest extends BaseFeatureTest
         $response = $this->post(
             '/download-files',
             [
+                '_token' => csrf_token(),
                 //$allFiles[3] is not shared, but in a different sub-dir
                 'fileList' => [$allFiles[0], $allFiles[1], $allFiles[3] ],
                 'slug' => $slug,
@@ -193,6 +194,7 @@ class ShareGuestControllerTest extends BaseFeatureTest
         $response = $this->post(
             '/download-files',
             [
+                '_token' => csrf_token(),
                 'fileList' => [$allFiles[0], $allFiles[1], $allFiles[2] ],
                 'slug' => $slug,
             ]
