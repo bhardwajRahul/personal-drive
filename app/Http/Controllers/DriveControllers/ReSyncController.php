@@ -8,6 +8,8 @@ use App\Models\Share;
 use App\Services\LocalFileStatsService;
 use App\Traits\FlashMessages;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
+use UnexpectedValueException;
 
 class ReSyncController extends Controller
 {
@@ -23,9 +25,17 @@ class ReSyncController extends Controller
 
     public function index(): RedirectResponse
     {
-        LocalFile::clearTable();
-        Share::truncate();
-        $filesUpdated = $this->localFileStatsService->generateStats();
+        try {
+            $filesUpdated = DB::transaction(function (): int {
+                LocalFile::clearTable();
+                Share::truncate();
+                return $this->localFileStatsService->generateStats();
+            });
+        } catch (UnexpectedValueException) {
+            return $this->error(
+                'Storage scan failed because a file or folder cannot be accessed. Check its permissions and try again.'
+            );
+        }
         if ($filesUpdated > 0) {
             return $this->success('Sync successful. Found : ' . $filesUpdated . ' files');
         }

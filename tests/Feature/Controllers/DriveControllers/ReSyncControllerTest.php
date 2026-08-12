@@ -3,12 +3,13 @@
 namespace Tests\Feature\Controllers\DriveControllers;
 
 use App\Models\LocalFile;
-use App\Services\PathService;
-use Tests\Feature\BaseFeatureTest;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Models\Share;
+use App\Models\SharedFile;
+use App\Services\LocalFileStatsService;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Mockery;
+use Tests\Feature\BaseFeatureTest;
+use UnexpectedValueException;
 
 class ReSyncControllerTest extends BaseFeatureTest
 {
@@ -26,10 +27,10 @@ class ReSyncControllerTest extends BaseFeatureTest
         $allFiles = LocalFile::all();
         $this->assertCount(0, $allFiles);
 
-
         $response = $this->post(
-            route('resync'), [
-            '_token' => csrf_token(),
+            route('resync'),
+            [
+                '_token' => csrf_token(),
             ]
         );
         $response->assertSessionHas('status', true);
@@ -47,8 +48,9 @@ class ReSyncControllerTest extends BaseFeatureTest
         $this->assertCount(0, $allFiles);
 
         $response = $this->post(
-            route('resync'), [
-            '_token' => csrf_token(),
+            route('resync'),
+            [
+                '_token' => csrf_token(),
             ]
         );
         $response->assertSessionHas('status', false);
@@ -58,6 +60,31 @@ class ReSyncControllerTest extends BaseFeatureTest
         $this->assertCount(0, $allFiles);
     }
 
+    public function test_resync_preserves_index_and_shares_when_scan_fails(): void
+    {
+        $this->uploadFile('', 'preserved.txt');
+        $file = LocalFile::firstOrFail();
+        $share = Share::factory()->create();
+        SharedFile::factory()->create([
+            'share_id' => $share->id,
+            'file_id' => $file->id,
+        ]);
+
+        $this->mock(LocalFileStatsService::class)
+            ->shouldReceive('generateStats')
+            ->once()
+            ->andThrow(new UnexpectedValueException('unreadable directory'));
+
+        $response = $this->post(route('resync'), ['_token' => csrf_token()]);
+
+        $response->assertSessionHas('status', false);
+        $this->assertDatabaseHas('local_files', ['id' => $file->id]);
+        $this->assertDatabaseHas('shares', ['id' => $share->id]);
+        $this->assertDatabaseHas('shared_files', [
+            'share_id' => $share->id,
+            'file_id' => $file->id,
+        ]);
+    }
 
     protected function setUp(): void
     {
