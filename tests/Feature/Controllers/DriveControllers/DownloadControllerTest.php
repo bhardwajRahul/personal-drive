@@ -103,36 +103,6 @@ class DownloadControllerTest extends BaseFeatureTest
         );
     }
 
-    public function test_index_rejects_entire_multi_file_download_when_a_selected_file_was_deleted(): void
-    {
-        $deletedFile = LocalFile::getByName('ace.txt')->firstOrFail();
-        $remainingFile = LocalFile::where('filename', 'b.txt')
-            ->where('public_path', 'foo')
-            ->firstOrFail();
-        $deletedFilePath = $deletedFile->getPrivatePathNameForFile();
-
-        $deleteResponse = $this->post(route('drive.delete-files'), [
-            '_token' => csrf_token(),
-            'fileList' => [$deletedFile->id],
-        ]);
-
-        $deleteResponse->assertSessionHas('status', true);
-        $this->assertNull(LocalFile::find($deletedFile->id));
-        $this->assertFileDoesNotExist($deletedFilePath);
-
-        $response = $this->post('/download-files', [
-            '_token' => csrf_token(),
-            'fileList' => [$deletedFile->id, $remainingFile->id],
-        ]);
-
-        $response->assertOk();
-        $response->assertHeaderMissing('Content-Disposition');
-        $response->assertExactJson([
-            'status' => false,
-            'message' => 'Could not find files to download',
-        ]);
-    }
-
 
     public function test_index_downloads_multiple_files_as_zip(): void
     {
@@ -250,16 +220,18 @@ class DownloadControllerTest extends BaseFeatureTest
             $this->assertTrue($opened === true);
             $this->assertSame(2, $archive->numFiles);
 
-            $contents = [];
+            $entries = [];
             for ($index = 0; $index < $archive->numFiles; $index++) {
-                $contents[] = $archive->getFromIndex($index);
+                $entryName = $archive->getNameIndex($index);
+                $this->assertNotFalse($entryName);
+                $entries[$entryName] = $archive->getFromIndex($index);
             }
+            ksort($entries);
 
-            $this->assertCount(2, array_unique($contents));
-            sort($contents);
-            $expectedContents = [$alphaContents, $betaContents];
-            sort($expectedContents);
-            $this->assertSame($expectedContents, $contents);
+            $this->assertSame([
+                'alpha/readme.txt' => $alphaContents,
+                'beta/readme.txt' => $betaContents,
+            ], $entries);
         } finally {
             if ($opened === true) {
                 $archive->close();

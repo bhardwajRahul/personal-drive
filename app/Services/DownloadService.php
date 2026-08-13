@@ -62,7 +62,8 @@ class DownloadService
                     $zip->addFile($filePath, $relativePath);
                 }
             } else {
-                $zip->addFile($pathName, basename($pathName));
+                $archivePath = str_replace(DS, '/', $localFile->getPublicPathPlusName());
+                $zip->addFile($pathName, $archivePath);
             }
         }
 
