@@ -13,7 +13,7 @@ const Modal = ({
                 onClick={() => shouldCloseOnOverlayClick && onClose(false)}
             >
                 <div
-                    className={`bg-gray-900 border-gray-700 border-4 rounded-lg shadow-xl  mx-4 ${classes}`}
+                    className={`rounded-lg shadow-xl  mx-4 ${classes}`}
                     onClick={(e) => e.stopPropagation()}
                 >
                     {title && (
@@ -39,7 +39,7 @@ const Modal = ({
                             </button>
                         </div>
                     )}
-                    <div className="p-1 md:p-4 max-h-[90vh] overflow-y-auto">
+                    <div className="p-1 max-h-[90vh] overflow-y-auto">
                         {children}
                     </div>
                 </div>

@@ -96,7 +96,7 @@ const FileTileViewCard = React.memo(function FileTileViewCard({
                 {isAdmin && (
                     <div className="flex-1">
                         <DeleteButton
-                            classes="bg-red-500/10 hover:bg-red-500/20 text-red-500 py-2 rounded-md transition-colors duration-200 w-full"
+                            classes="bg-red-500/10 hover:bg-red-500/20 text-red-500 py-2 rounded-md transition-colors duration-200"
                             selectedFiles={selectedFileSet}
                             setSelectedFiles={setSelectedFiles}
                         />
