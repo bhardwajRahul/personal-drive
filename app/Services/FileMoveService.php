@@ -37,6 +37,18 @@ class FileMoveService
         if (!$destinationPrivatePath || !file_exists($destinationPrivatePath) || !is_dir($destinationPrivatePath)) {
             throw FileMoveException::invalidDestinationPath();
         }
+        $destinations = [];
+        foreach ($localFiles as $localFile) {
+            $destination = $localFile->getFullPathFromContentRoot('', $desPublicPath);
+            if (isset($destinations[$destination])
+                || $this->fileOperationsService->fileExists($destination)
+                || $this->fileOperationsService->directoryExists($destination)
+            ) {
+                throw FileMoveException::destinationExists();
+            }
+            $destinations[$destination] = true;
+        }
+
         foreach ($localFiles as $localFile) {
             $this->moveSingleFileOrDirectory(
                 $localFile,

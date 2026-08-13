@@ -39,9 +39,81 @@ class FileMoveControllerTest extends BaseFeatureTest
 
         $response = $this->postMoveFiles([$firstFile->id], 'foo');
         $response->assertSessionHas('status', false);
-        $response->assertSessionHas('message', 'Could not move: Same name Directory exists');
+        $response->assertSessionHas('message', 'Move stopped. An item with the same name already exists.');
         Storage::disk('local')->assertExists(CONTENT_SUBDIR . $testPath . '/bar/1.txt');
         Storage::disk('local')->assertMissing(CONTENT_SUBDIR . $testPath . 'foo/bar/1.txt');
+    }
+
+    public function test_file_collision_rejects_entire_batch_without_changing_either_version(): void
+    {
+        $this->postUpload([
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('source/a.txt', 'move me'),
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('source/collision.txt', 'source version'),
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('destination/collision.txt', 'destination version'),
+        ], '');
+        $movable = LocalFile::where('filename', 'a.txt')->where('public_path', 'source')->firstOrFail();
+        $collision = LocalFile::where('filename', 'collision.txt')->where('public_path', 'source')->firstOrFail();
+
+        $response = $this->postMoveFiles([$movable->id, $collision->id], 'destination');
+
+        $response->assertSessionHas('status', false);
+        $response->assertSessionHas('message', 'Move stopped. An item with the same name already exists.');
+        $disk = Storage::disk('local');
+        $this->assertSame('move me', $disk->get(CONTENT_SUBDIR . '/source/a.txt'));
+        $this->assertSame('source version', $disk->get(CONTENT_SUBDIR . '/source/collision.txt'));
+        $this->assertSame('destination version', $disk->get(CONTENT_SUBDIR . '/destination/collision.txt'));
+        $disk->assertMissing(CONTENT_SUBDIR . '/destination/a.txt');
+        $this->assertDatabaseHas('local_files', ['id' => $movable->id, 'public_path' => 'source']);
+        $this->assertDatabaseHas('local_files', ['id' => $collision->id, 'public_path' => 'source']);
+    }
+
+    public function test_folder_collision_rejects_entire_batch_without_merging_or_partial_move(): void
+    {
+        $this->postUpload([
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('source/a.txt', 'move me'),
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('source/shared/source-only.txt', 'source file'),
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('destination/shared/destination-only.txt', 'destination file'),
+        ], '');
+        $movable = LocalFile::where('filename', 'a.txt')->where('public_path', 'source')->firstOrFail();
+        $collision = LocalFile::where('filename', 'shared')->where('public_path', 'source')->firstOrFail();
+
+        $response = $this->postMoveFiles([$movable->id, $collision->id], 'destination');
+
+        $response->assertSessionHas('status', false);
+        $response->assertSessionHas('message', 'Move stopped. An item with the same name already exists.');
+        $disk = Storage::disk('local');
+        $this->assertSame('move me', $disk->get(CONTENT_SUBDIR . '/source/a.txt'));
+        $this->assertSame('source file', $disk->get(CONTENT_SUBDIR . '/source/shared/source-only.txt'));
+        $this->assertSame(
+            'destination file',
+            $disk->get(CONTENT_SUBDIR . '/destination/shared/destination-only.txt')
+        );
+        $disk->assertMissing(CONTENT_SUBDIR . '/destination/a.txt');
+        $disk->assertMissing(CONTENT_SUBDIR . '/destination/shared/source-only.txt');
+        $this->assertDatabaseHas('local_files', ['id' => $movable->id, 'public_path' => 'source']);
+        $this->assertDatabaseHas('local_files', ['id' => $collision->id, 'public_path' => 'source']);
+    }
+
+    public function test_duplicate_targets_within_batch_are_rejected_before_any_item_moves(): void
+    {
+        $this->postUpload([
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('first/same.txt', 'first version'),
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('second/same.txt', 'second version'),
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('destination/.keep', 'keep'),
+        ], '');
+        $first = LocalFile::where('filename', 'same.txt')->where('public_path', 'first')->firstOrFail();
+        $second = LocalFile::where('filename', 'same.txt')->where('public_path', 'second')->firstOrFail();
+
+        $response = $this->postMoveFiles([$first->id, $second->id], 'destination');
+
+        $response->assertSessionHas('status', false);
+        $response->assertSessionHas('message', 'Move stopped. An item with the same name already exists.');
+        $disk = Storage::disk('local');
+        $this->assertSame('first version', $disk->get(CONTENT_SUBDIR . '/first/same.txt'));
+        $this->assertSame('second version', $disk->get(CONTENT_SUBDIR . '/second/same.txt'));
+        $disk->assertMissing(CONTENT_SUBDIR . '/destination/same.txt');
+        $this->assertDatabaseHas('local_files', ['id' => $first->id, 'public_path' => 'first']);
+        $this->assertDatabaseHas('local_files', ['id' => $second->id, 'public_path' => 'second']);
     }
 
     public function test_move_file_success()
