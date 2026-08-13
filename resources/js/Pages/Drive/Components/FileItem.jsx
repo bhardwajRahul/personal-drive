@@ -22,14 +22,14 @@ const FileItem = React.memo(function FileItem({
 }) {
     return (
         <div
-            className={` flex items-center  md:hover:bg-gray-900 justify-between`}
+            className="flex min-w-0 items-center justify-between md:hover:bg-gray-900"
             onClick={() => handleFileClick(file)}
         >
-            <div className="flex p-1 sm:p-2 md:p-4  items-center">
+            <div className="flex min-w-0 flex-1 items-center p-1 sm:p-2 md:p-4">
                 <File
                     className={`mr-2 text-gray-300 min-w-3 min-h-3 max-w-3 max-h-3`}
                 />
-                <span className="text-ellipsis  max-w-2xl">
+                <span className="truncate">
                     {(isSearch ? file.public_path + "/" : "") + file.filename}
                 </span>
             </div>

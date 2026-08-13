@@ -38,7 +38,7 @@ export default function AllShares({ shares }) {
         <>
             <Header />
             <div className="p-1 md:p-4 space-y-4 max-w-7xl mx-auto text-gray-300  bg-gray-800 min-h-screen">
-                <h2 className="text-center text-4xl my-12 mb-32 font-semibold">
+                <h2 className="text-center text-3xl my-6 mb-8 font-semibold sm:text-4xl sm:my-12 sm:mb-32">
                     All Live Shares
                 </h2>
                 <main className="mx-auto max-w-7xl">
@@ -50,10 +50,10 @@ export default function AllShares({ shares }) {
                                     <th className="py-3 mb-6 px-4 border-b border-gray-700 hidden md:table-cell">
                                         Created
                                     </th>
-                                    <th className="py-3 mb-6 px-4 border-b border-gray-700 ">
+                                    <th className="py-3 mb-6 px-1 sm:px-4 border-b border-gray-700">
                                         Details
                                     </th>
-                                    <th className="py-3 mb-6 px-4 border-b border-gray-700 ">
+                                    <th className="py-3 mb-6 px-1 sm:px-4 border-b border-gray-700">
                                         Files
                                     </th>
                                     <th className="py-2 mb-6 px-4 border-b border-gray-700 hidden md:table-cell">
@@ -62,10 +62,10 @@ export default function AllShares({ shares }) {
                                     <th className="py-3 mb-6 px-4 border-b border-gray-700 hidden md:table-cell">
                                         Expiring on
                                     </th>
-                                    <th className="py-3 mb-6 px-4 border-b border-gray-700 ">
+                                    <th className="py-3 mb-6 px-1 sm:px-4 border-b border-gray-700">
                                         Enabled
                                     </th>
-                                    <th className="py-3 mb-6 px-4 border-b border-gray-700 ">
+                                    <th className="py-3 mb-6 px-1 sm:px-4 border-b border-gray-700">
                                         Delete
                                     </th>
                                 </tr>
@@ -84,7 +84,7 @@ export default function AllShares({ shares }) {
                                             </td>
                                             <td className="p-1 sm:p-2 md:p-4  flex gap-y-2 flex-col max-w-[500px] ">
                                                 <div className="flex gap-10 items-center ">
-                                                    <span className="font-semibold text-sm sm:text-lg text-indigo-300">
+                                                    <span className="break-all font-semibold text-sm sm:text-lg text-indigo-300">
                                                         {shareRoot + share.slug}
                                                     </span>
                                                 </div>

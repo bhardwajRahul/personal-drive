@@ -23,7 +23,7 @@ const FileListRow = React.memo(function FileListRow({
     return (
         <div className="cursor-pointer hover:bg-gray-700 group flex flex-row w-full">
             <div
-                className="p-1 md:px-6 w-6 md:w-10 flex  justify-center items-center hover:bg-gray-900"
+                className="p-1 md:px-6 w-6 md:w-10 shrink-0 flex justify-center items-center hover:bg-gray-900"
                 onClick={() => handlerSelectFile(file)}
             >
                 <input
@@ -32,7 +32,7 @@ const FileListRow = React.memo(function FileListRow({
                     onChange={() => {}}
                 />
             </div>
-            <div className="w-full overflow-hidden truncate">
+            <div className="min-w-0 flex-1 overflow-hidden">
                 {file.is_dir ? (
                     <FolderItem
                         file={file}
@@ -68,10 +68,10 @@ const FileListRow = React.memo(function FileListRow({
                     />
                 )}
             </div>
-            <div className="p-1 sm:p-2 md:p-4 text-right w-20 sm:w-28 md:w-44 text-gray-400 text-xs md:text-sm ">
+            <div className="p-1 sm:p-2 md:p-4 text-right w-14 sm:w-28 md:w-44 shrink-0 whitespace-nowrap text-gray-400 text-xs md:text-sm">
                 {file.sizeText}
             </div>
-            <div className="p-1 sm:p-2 md:p-4 text-right w-16 sm:w-28 md:w-44 text-gray-400 text-xs md:text-sm ">
+            <div className="p-1 sm:p-2 md:p-4 text-right w-14 sm:w-28 md:w-44 shrink-0 truncate text-gray-400 text-xs md:text-sm">
                 {file.file_type}
             </div>
         </div>

@@ -40,7 +40,7 @@ const TileViewOne = ({
             <div className=" text-center flex items-center gap-x-2 justify-between mb-6 text-xs md:text-sm  text-gray-400 ">
                 <div
                     className="text-center bg-gray-900/50 hover:bg-gray-700 hover:cursor-pointer flex items-center gap-x-2 p-1 md:p-3 whitespace-nowrap"
-                    onClick={(e) => handleSelectAllToggle(filesCopy)}
+                    onClick={() => handleSelectAllToggle(filesCopy)}
                 >
                     <input
                         className=" hover:cursor-pointer"
@@ -81,8 +81,7 @@ const TileViewOne = ({
                     </button>
                 </div>
             </div>
-            {/*<div className="w-full flex flex-wrap gap-1 sm:gap-3 md:gap-5 justify-start">*/}
-                <div className="w-full grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-1 sm:gap-3 md:gap-5">
+            <div className="grid w-full grid-cols-2 gap-1 sm:gap-3 md:grid-cols-2 md:gap-5 lg:grid-cols-3 xl:grid-cols-4">
                 {filesCopy.map((file) => (
                     <FileTileViewCard
                         key={file.id}
