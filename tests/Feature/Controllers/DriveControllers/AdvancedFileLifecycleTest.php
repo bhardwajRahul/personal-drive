@@ -154,6 +154,211 @@ class AdvancedFileLifecycleTest extends BaseFeatureTest
         $this->assertStringNotContainsString('private.txt', $response->getContent());
     }
 
+    public function test_moving_directory_into_its_descendant_is_rejected_without_data_loss(): void
+    {
+        $this->uploadMultipleFiles('', ['root/child/keep.txt']);
+        $root = LocalFile::where('filename', 'root')->where('public_path', '')->firstOrFail();
+
+        $response = $this->post(route('drive.move-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$root->id],
+            'path' => 'root/child',
+        ]);
+
+        $response->assertSessionHas('status', false);
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . '/root/child/keep.txt');
+        Storage::disk('local')->assertMissing(CONTENT_SUBDIR . '/root/child/root/child/keep.txt');
+        $this->assertDatabaseHas('local_files', ['filename' => 'keep.txt', 'public_path' => 'root/child']);
+    }
+
+
+    public function test_deleting_one_shared_file_keeps_other_shared_file_accessible(): void
+    {
+        $this->uploadMultipleFiles('', ['share/a.txt', 'share/b.txt']);
+        $first = LocalFile::where('filename', 'a.txt')->firstOrFail();
+        $second = LocalFile::where('filename', 'b.txt')->firstOrFail();
+        $slug = 'partial-delete-share';
+        $this->createShare([$first->id, $second->id], 'password', 7, $slug);
+
+        $this->post(route('drive.delete-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$first->id],
+        ])->assertSessionHas('status', true);
+        $this->logout();
+        $this->postCheckPassword($slug, 'password');
+
+        $missing = $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$first->id],
+            'slug' => $slug,
+        ]);
+        $missing->assertOk();
+        $missing->assertJson(['status' => false, 'message' => 'Could not find files to download']);
+
+        $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$second->id],
+            'slug' => $slug,
+        ])->assertHeader('Content-Disposition', 'attachment; filename=b.txt');
+    }
+
+    public function test_paused_share_revokes_an_authenticated_guest_session(): void
+    {
+        $this->uploadFile('', 'shared.txt');
+        $shared = LocalFile::where('filename', 'shared.txt')->firstOrFail();
+        $slug = 'paused-share';
+        $this->createShare([$shared->id], 'password', 7, $slug);
+        $shareId = $this->getSlugId($slug);
+        $this->logout();
+        $this->postCheckPassword($slug, 'password');
+
+        $this->actingAs(\App\Models\User::firstOrFail());
+        $this->post(route('drive.share-pause'), ['_token' => csrf_token(), 'id' => $shareId])
+            ->assertSessionHas('status', true);
+        $this->logout();
+
+        $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$shared->id],
+            'slug' => $slug,
+        ])->assertRedirect(route('login', ['slug' => $slug]));
+    }
+
+    public function test_deleting_share_revokes_an_authenticated_guest_session(): void
+    {
+        $this->uploadFile('', 'shared.txt');
+        $shared = LocalFile::where('filename', 'shared.txt')->firstOrFail();
+        $slug = 'deleted-share';
+        $this->createShare([$shared->id], 'password', 7, $slug);
+        $shareId = $this->getSlugId($slug);
+        $this->logout();
+        $this->postCheckPassword($slug, 'password');
+
+        $this->actingAs(\App\Models\User::firstOrFail());
+        $this->post(route('drive.share-delete'), ['_token' => csrf_token(), 'id' => $shareId])
+            ->assertSessionHas('status', true);
+        $this->assertDatabaseMissing('shares', ['id' => $shareId]);
+        $this->logout();
+
+        $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$shared->id],
+            'slug' => $slug,
+        ])->assertRedirect(route('login', ['slug' => $slug]));
+    }
+
+    public function test_overlapping_shares_are_revoked_independently(): void
+    {
+        $this->uploadMultipleFiles('', ['a.txt', 'b.txt', 'c.txt']);
+        $a = LocalFile::where('filename', 'a.txt')->firstOrFail();
+        $b = LocalFile::where('filename', 'b.txt')->firstOrFail();
+        $c = LocalFile::where('filename', 'c.txt')->firstOrFail();
+        $this->createShare([$a->id, $b->id], 'password', 7, 'first-share');
+        $this->createShare([$b->id, $c->id], 'password', 7, 'second-share');
+
+        $this->post(route('drive.share-pause'), [
+            '_token' => csrf_token(),
+            'id' => $this->getSlugId('first-share'),
+        ])->assertSessionHas('status', true);
+        $this->logout();
+
+        $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$b->id],
+            'slug' => 'first-share',
+        ])->assertRedirect(route('login', ['slug' => 'first-share']));
+
+        $this->postCheckPassword('second-share', 'password');
+        $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$b->id, $c->id],
+            'slug' => 'second-share',
+        ])->assertHeaderContains('Content-Disposition', 'attachment; filename=personal_drive_');
+    }
+
+    public function test_batch_upload_keeps_existing_conflict_until_overwrite_then_preserves_other_files(): void
+    {
+        $this->postUpload([
+            UploadedFile::fake()->createWithContent('a.txt', 'old a'),
+            UploadedFile::fake()->createWithContent('b.txt', 'old b'),
+        ], '');
+        $a = LocalFile::where('filename', 'a.txt')->firstOrFail();
+        $b = LocalFile::where('filename', 'b.txt')->firstOrFail();
+
+        $this->postUpload([
+            UploadedFile::fake()->createWithContent('a.txt', 'new a'),
+            UploadedFile::fake()->createWithContent('b.txt', 'new b'),
+            UploadedFile::fake()->createWithContent('c.txt', 'new c'),
+        ], '')->assertSessionHas('message', 'Duplicates Detected');
+        $this->post(route('drive.abort-replace'), ['_token' => csrf_token(), 'action' => 'overwrite'])
+            ->assertSessionHas('status', true);
+
+        $this->assertSame('new a', $this->post('/download-files', [
+            '_token' => csrf_token(), 'fileList' => [$a->id],
+        ])->streamedContent());
+        $this->assertSame('new b', $this->post('/download-files', [
+            '_token' => csrf_token(), 'fileList' => [$b->id],
+        ])->streamedContent());
+        $this->assertSame('new c', $this->post('/download-files', [
+            '_token' => csrf_token(), 'fileList' => [LocalFile::where('filename', 'c.txt')->firstOrFail()->id],
+        ])->streamedContent());
+    }
+
+
+    public function test_deep_repeated_names_share_only_selected_ancestry(): void
+    {
+        $this->uploadMultipleFiles('', [
+            'a/readme.txt',
+            'a/b/readme.txt',
+            'a/b/c/readme.txt',
+            'a-other/readme.txt',
+        ]);
+        $directory = LocalFile::where('filename', 'a')->where('public_path', '')->firstOrFail();
+        $allowed = LocalFile::where('filename', 'readme.txt')->where('public_path', 'a/b/c')->firstOrFail();
+        $outside = LocalFile::where('filename', 'readme.txt')->where('public_path', 'a-other')->firstOrFail();
+        $slug = 'deep-ancestry';
+        $this->createShare([$directory->id], 'password', 7, $slug);
+        $this->logout();
+        $this->postCheckPassword($slug, 'password');
+
+        $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$allowed->id],
+            'slug' => $slug,
+        ])->assertHeader('Content-Disposition', 'attachment; filename=readme.txt');
+
+        $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$outside->id],
+            'slug' => $slug,
+        ])->assertJson(['status' => false, 'message' => 'Error: authorization issue']);
+    }
+
+    public function test_deleted_shared_descendant_never_returns_stale_file_content(): void
+    {
+        $this->uploadMultipleFiles('', ['shared/file.txt']);
+        $directory = LocalFile::where('filename', 'shared')->where('public_path', '')->firstOrFail();
+        $file = LocalFile::where('filename', 'file.txt')->where('public_path', 'shared')->firstOrFail();
+        $slug = 'deleted-descendant';
+        $this->createShare([$directory->id], 'password', 7, $slug);
+
+        $this->post(route('drive.delete-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$directory->id],
+        ])->assertSessionHas('status', true);
+        $this->logout();
+        $this->postCheckPassword($slug, 'password');
+
+        $response = $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$file->id],
+            'slug' => $slug,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['status' => false, 'message' => 'Could not find files to download']);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
