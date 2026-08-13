@@ -600,6 +600,153 @@ class ShareGuestControllerTest extends BaseFeatureTest
     //        $response->assertSessionHas('message', 'Wrong password');
     //    }
 
+    public function test_expired_authenticated_share_cannot_stream_file_bytes(): void
+    {
+        $slug = 'expired-guest';
+        $contents = 'expired-share-private-bytes';
+        $file = LocalFile::where('filename', 'ace.txt')
+            ->where('public_path', '')
+            ->firstOrFail();
+        $file->file_type = 'text';
+        $file->save();
+        file_put_contents($file->getPrivatePathNameForFile(), $contents);
+        $this->createShare([$file->id], 'password', 1, $slug);
+        $this->logout();
+
+        $this->postCheckPassword($slug, 'password')
+            ->assertRedirect('/shared/' . $slug);
+
+        $share = Share::whereBySlug($slug)->firstOrFail();
+        $share->created_at = now()->subDays(2);
+        $share->save();
+
+        $response = $this->get(route('drive.fetch-file', ['id' => $file->id, 'slug' => $slug]));
+
+        $response->assertRedirect(route('login', ['slug' => $slug]));
+        $this->assertStringNotContainsString($contents, $response->getContent());
+    }
+
+    public function test_guest_cannot_fetch_first_share_after_authenticating_second_share(): void
+    {
+        $firstSlug = 'first-guest-share';
+        $secondSlug = 'second-guest-share';
+        $firstContents = 'first-share-private-bytes';
+        $secondContents = 'second-share-private-bytes';
+        $firstFile = LocalFile::where('filename', 'ace.txt')
+            ->where('public_path', '')
+            ->firstOrFail();
+        $secondFile = LocalFile::where('filename', 'beta.txt')
+            ->where('public_path', '')
+            ->firstOrFail();
+        $firstFile->file_type = 'text';
+        $secondFile->file_type = 'text';
+        $firstFile->save();
+        $secondFile->save();
+        file_put_contents($firstFile->getPrivatePathNameForFile(), $firstContents);
+        file_put_contents($secondFile->getPrivatePathNameForFile(), $secondContents);
+        $this->assertSame($firstContents, file_get_contents($firstFile->getPrivatePathNameForFile()));
+        $this->assertSame($secondContents, file_get_contents($secondFile->getPrivatePathNameForFile()));
+        $this->createShare([$firstFile->id], 'first-password', 7, $firstSlug);
+        $this->createShare([$secondFile->id], 'second-password', 7, $secondSlug);
+        $this->logout();
+
+        $this->postCheckPassword($firstSlug, 'first-password')
+            ->assertRedirect('/shared/' . $firstSlug);
+        $this->postCheckPassword($secondSlug, 'second-password')
+            ->assertRedirect('/shared/' . $secondSlug);
+
+        $response = $this->get(route('drive.fetch-file', ['id' => $firstFile->id, 'slug' => $firstSlug]));
+
+        $response->assertRedirect(route('shared.password', ['slug' => $firstSlug]));
+        $this->assertStringNotContainsString($firstContents, $response->getContent());
+
+        $this->postCheckPassword($firstSlug, 'first-password')
+            ->assertRedirect('/shared/' . $firstSlug);
+        $response = $this->get(route('drive.fetch-file', ['id' => $firstFile->id, 'slug' => $firstSlug]));
+
+        $response->assertOk();
+        $this->assertSame($firstContents, $response->streamedContent());
+    }
+    public function test_paused_password_protected_share_cannot_mint_guest_authorization(): void
+    {
+        $slug = 'paused-pw-check';
+        [$toShareFileIds] = $this->getDataForMakingShare();
+        $this->createShare($toShareFileIds, 'password', 7, $slug);
+        $shareId = $this->getSlugId($slug);
+
+        $this->post(route('drive.share-pause'), ['_token' => csrf_token(), 'id' => $shareId])
+            ->assertSessionHas('status', true);
+        $this->logout();
+
+        $response = $this->postCheckPassword($slug, 'password');
+
+        $response->assertSessionMissing("shared_{$slug}_authenticated");
+        $response->assertSessionMissing('share_id');
+        $this->get('/shared/' . $slug)
+            ->assertRedirect(route('login', ['slug' => $slug]));
+    }
+
+    public function test_paused_share_cannot_stream_authenticated_guest_file_bytes(): void
+    {
+        $slug = 'paused-fetch';
+        $contents = 'paused-share-private-bytes';
+        $file = LocalFile::where('filename', 'ace.txt')
+            ->where('public_path', '')
+            ->firstOrFail();
+        $file->file_type = 'text';
+        $file->save();
+        file_put_contents($file->getPrivatePathNameForFile(), $contents);
+        $this->createShare([$file->id], 'password', 7, $slug);
+        $shareId = $this->getSlugId($slug);
+        $this->logout();
+
+        $this->postCheckPassword($slug, 'password')
+            ->assertRedirect('/shared/' . $slug);
+
+        $this->actingAs(\App\Models\User::firstOrFail());
+        $this->post(route('drive.share-pause'), ['_token' => csrf_token(), 'id' => $shareId])
+            ->assertSessionHas('status', true);
+        $this->logout();
+
+        $response = $this->get(route('drive.fetch-file', ['id' => $file->id, 'slug' => $slug]));
+
+        $response->assertRedirect(route('login', ['slug' => $slug]));
+        $this->assertStringNotContainsString($contents, $response->getContent());
+    }
+
+    public function test_deleted_share_cannot_stream_authenticated_guest_thumbnail_bytes(): void
+    {
+        $slug = 'deleted-thumb';
+        $this->uploadImage('deleted-thumb.png');
+        $file = LocalFile::where('filename', 'deleted-thumb.png')
+            ->where('public_path', '')
+            ->firstOrFail();
+        $this->post('/gen-thumbs', ['_token' => csrf_token(), 'ids' => [$file->id]])
+            ->assertRedirect(route('drive'));
+        $thumbnailPath = app(ThumbnailService::class)->getFullFileThumbnailPath($file);
+        $this->assertFileExists($thumbnailPath);
+        $thumbnailContents = file_get_contents($thumbnailPath);
+        $this->assertNotSame('', $thumbnailContents);
+        $this->createShare([$file->id], 'password', 7, $slug);
+        $shareId = $this->getSlugId($slug);
+        $this->logout();
+
+        $this->postCheckPassword($slug, 'password')
+            ->assertRedirect('/shared/' . $slug);
+
+        $this->actingAs(\App\Models\User::firstOrFail());
+        $this->post(route('drive.share-delete'), ['_token' => csrf_token(), 'id' => $shareId])
+            ->assertSessionHas('status', true);
+        $this->assertDatabaseMissing('shares', ['id' => $shareId]);
+        $this->logout();
+
+        $response = $this->get(route('drive.get-thumb', ['id' => $file->id, 'slug' => $slug]));
+
+        $response->assertRedirect(route('login', ['slug' => $slug]));
+        $this->assertStringNotContainsString($thumbnailContents, $response->getContent());
+    }
+
+
     protected function setUp(): void
     {
         $fileNames = [

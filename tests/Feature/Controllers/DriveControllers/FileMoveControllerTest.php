@@ -88,6 +88,54 @@ class FileMoveControllerTest extends BaseFeatureTest
         Storage::disk('local')->assertExists(CONTENT_SUBDIR . $testPath . '/bar/bar/2.txt');
     }
 
+    public function test_moving_parent_and_child_together_creates_one_coherent_destination_tree()
+    {
+        $this->postUpload([
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('parent/child/file.txt', 'nested content'),
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('destination/.keep', 'keep'),
+        ], '');
+        $parent = LocalFile::where('filename', 'parent')->where('public_path', '')->firstOrFail();
+        $child = LocalFile::where('filename', 'child')->where('public_path', 'parent')->firstOrFail();
+
+        $response = $this->postMoveFiles([$parent->id, $child->id], 'destination');
+
+        $response->assertSessionHas('status', true);
+        Storage::disk('local')->assertMissing(CONTENT_SUBDIR . '/parent');
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . '/destination/parent/child/file.txt');
+        Storage::disk('local')->assertMissing(CONTENT_SUBDIR . '/destination/child/file.txt');
+        Storage::disk('local')->assertMissing(CONTENT_SUBDIR . '/destination/parent/child/child/file.txt');
+        $this->assertDatabaseMissing('local_files', ['filename' => 'parent', 'public_path' => '']);
+        $this->assertSame(0, LocalFile::whereIn('public_path', ['parent', 'parent/child'])->count());
+        $this->assertSame(1, LocalFile::where('filename', 'parent')->where('public_path', 'destination')->count());
+        $this->assertSame(1, LocalFile::where('filename', 'child')->where('public_path', 'destination/parent')->count());
+        $this->assertSame(1, LocalFile::where('filename', 'file.txt')
+            ->where('public_path', 'destination/parent/child')->count());
+        $this->assertSame(0, LocalFile::where('filename', 'file.txt')
+            ->whereIn('public_path', ['destination/child', 'destination/parent/child/child'])->count());
+    }
+
+    public function test_moving_file_to_its_current_directory_preserves_one_downloadable_file()
+    {
+        $this->postUpload([
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('home/file.txt', 'original content'),
+        ], '');
+        $file = LocalFile::where('filename', 'file.txt')->where('public_path', 'home')->firstOrFail();
+
+        $response = $this->postMoveFiles([$file->id], 'home');
+
+        $response->assertSessionHas('status', fn (mixed $status): bool => $status === true || $status === false);
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . '/home/file.txt');
+        $this->assertSame(1, LocalFile::where('filename', 'file.txt')->where('public_path', 'home')->count());
+        $preservedFile = LocalFile::where('filename', 'file.txt')->where('public_path', 'home')->firstOrFail();
+        $download = $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$preservedFile->id],
+        ]);
+
+        $download->assertOk();
+        $this->assertSame('original content', $download->streamedContent());
+    }
+
     public function postMoveFiles(array $fileIds, string $path): TestResponse
     {
         return $this->post(

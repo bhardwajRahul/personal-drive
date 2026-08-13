@@ -461,6 +461,207 @@ class AdvancedFileLifecycleTest extends BaseFeatureTest
         $this->assertStringNotContainsString('replacement child', $response->getContent());
     }
 
+    public function test_overwrite_does_not_resurrect_a_deleted_original_after_duplicate_staging(): void
+    {
+        $this->postUpload([UploadedFile::fake()->createWithContent('report.txt', 'v1')], '');
+        $original = LocalFile::where('filename', 'report.txt')->where('public_path', '')->firstOrFail();
+        $this->postUpload([UploadedFile::fake()->createWithContent('report.txt', 'v2')], '')
+            ->assertSessionHas('message', 'Duplicates Detected');
+        $this->post(route('drive.delete-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$original->id],
+        ])->assertSessionHas('status', true);
+
+        $this->post(route('drive.abort-replace'), ['_token' => csrf_token(), 'action' => 'overwrite']);
+
+        $this->assertDatabaseMissing('local_files', ['id' => $original->id]);
+        Storage::disk('local')->assertMissing(CONTENT_SUBDIR . '/report.txt');
+        $download = $this->post('/download-files', ['_token' => csrf_token(), 'fileList' => [$original->id]]);
+        $download->assertOk();
+        $download->assertJson(['status' => false, 'message' => 'Could not find files to download']);
+        $this->assertStringNotContainsString('v1', $download->getContent());
+    }
+
+    public function test_deleting_one_overlapping_share_keeps_the_other_share_usable(): void
+    {
+        $this->postUpload([
+            UploadedFile::fake()->createWithContent('a.txt', 'a bytes'),
+            UploadedFile::fake()->createWithContent('b.txt', 'b bytes'),
+            UploadedFile::fake()->createWithContent('c.txt', 'c bytes'),
+        ], '');
+        $a = LocalFile::where('filename', 'a.txt')->firstOrFail();
+        $b = LocalFile::where('filename', 'b.txt')->firstOrFail();
+        $c = LocalFile::where('filename', 'c.txt')->firstOrFail();
+        $deletedSlug = 'overlap-a';
+        $usableSlug = 'overlap-b';
+        $this->createShare([$a->id, $b->id], 'password', 7, $deletedSlug);
+        $this->createShare([$b->id, $c->id], 'password', 7, $usableSlug);
+        $deletedShareId = $this->getSlugId($deletedSlug);
+
+        $this->post(route('drive.share-delete'), ['_token' => csrf_token(), 'id' => $deletedShareId])
+            ->assertSessionHas('status', true);
+        $this->assertDatabaseMissing('shares', ['id' => $deletedShareId]);
+        $this->assertDatabaseMissing('shares', ['slug' => $deletedSlug]);
+        $this->logout();
+
+        $this->get('/shared/' . $deletedSlug)->assertRedirect(route('login', ['slug' => $deletedSlug]));
+        $this->postCheckPassword($usableSlug, 'password')->assertRedirect('/shared/' . $usableSlug);
+        $bDownload = $this->post('/download-files', [
+            '_token' => csrf_token(), 'fileList' => [$b->id], 'slug' => $usableSlug,
+        ]);
+        $bDownload->assertOk();
+        $this->assertSame('b bytes', $bDownload->streamedContent());
+        $cDownload = $this->post('/download-files', [
+            '_token' => csrf_token(), 'fileList' => [$c->id], 'slug' => $usableSlug,
+        ]);
+        $cDownload->assertOk();
+        $this->assertSame('c bytes', $cDownload->streamedContent());
+    }
+
+    public function test_guest_can_download_unshared_file_moved_into_shared_directory(): void
+    {
+        $this->postUpload([
+            UploadedFile::fake()->createWithContent('shared/.keep', ''),
+            UploadedFile::fake()->createWithContent('outside.txt', 'moved bytes'),
+        ], '');
+        $directory = LocalFile::where('filename', 'shared')->where('public_path', '')->firstOrFail();
+        $outside = LocalFile::where('filename', 'outside.txt')->where('public_path', '')->firstOrFail();
+        $slug = 'moved-into-share';
+        $this->createShare([$directory->id], 'password', 7, $slug);
+
+        $this->post(route('drive.move-files'), [
+            '_token' => csrf_token(), 'fileList' => [$outside->id], 'path' => 'shared',
+        ])->assertSessionHas('status', true);
+
+        $this->assertDatabaseMissing('local_files', ['id' => $outside->id, 'public_path' => '']);
+        $moved = LocalFile::where('filename', 'outside.txt')->where('public_path', 'shared')->firstOrFail();
+        Storage::disk('local')->assertMissing(CONTENT_SUBDIR . '/outside.txt');
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . '/shared/outside.txt');
+        $this->logout();
+        $this->postCheckPassword($slug, 'password')->assertRedirect('/shared/' . $slug);
+
+        $download = $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$moved->id], 'slug' => $slug,
+        ]);
+        $download->assertOk();
+        $this->assertSame('moved bytes', $download->streamedContent());
+    }
+
+    public function test_direct_share_remains_downloadable_after_moving_file_to_existing_directory(): void
+    {
+        $this->postUpload([
+            UploadedFile::fake()->createWithContent('report.txt', 'shared report bytes'),
+            UploadedFile::fake()->createWithContent('archive/.keep', ''),
+        ], '');
+        $report = LocalFile::where('filename', 'report.txt')->where('public_path', '')->firstOrFail();
+        $slug = 'moved-direct';
+        $this->createShare([$report->id], 'password', 7, $slug);
+
+        $this->post(route('drive.move-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$report->id],
+            'path' => 'archive',
+        ])->assertSessionHas('status', true);
+
+        $this->assertDatabaseMissing('local_files', ['id' => $report->id]);
+        $this->assertDatabaseMissing('local_files', ['filename' => 'report.txt', 'public_path' => '']);
+        $moved = LocalFile::where('filename', 'report.txt')->where('public_path', 'archive')->firstOrFail();
+        $this->assertNotSame($report->id, $moved->id);
+        Storage::disk('local')->assertMissing(CONTENT_SUBDIR . '/report.txt');
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . '/archive/report.txt');
+        $this->assertSame('shared report bytes', Storage::disk('local')->get(CONTENT_SUBDIR . '/archive/report.txt'));
+
+        $this->logout();
+        $this->postCheckPassword($slug, 'password')->assertRedirect('/shared/' . $slug);
+        $download = $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$moved->id],
+            'slug' => $slug,
+        ]);
+
+        $download->assertHeader('Content-Disposition', 'attachment; filename=report.txt');
+        $this->assertSame('shared report bytes', $download->streamedContent());
+    }
+
+    public function test_directory_share_cannot_download_child_moved_into_unshared_directory(): void
+    {
+        $this->postUpload([
+            UploadedFile::fake()->createWithContent('shared/child.txt', 'private child bytes'),
+            UploadedFile::fake()->createWithContent('private/.keep', ''),
+        ], '');
+        $shared = LocalFile::where('filename', 'shared')->where('public_path', '')->firstOrFail();
+        $child = LocalFile::where('filename', 'child.txt')->where('public_path', 'shared')->firstOrFail();
+        $slug = 'moved-out';
+        $this->createShare([$shared->id], 'password', 7, $slug);
+
+        $this->post(route('drive.move-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$child->id],
+            'path' => 'private',
+        ])->assertSessionHas('status', true);
+
+        $this->assertDatabaseMissing('local_files', ['id' => $child->id]);
+        $this->assertDatabaseMissing('local_files', ['filename' => 'child.txt', 'public_path' => 'shared']);
+        $moved = LocalFile::where('filename', 'child.txt')->where('public_path', 'private')->firstOrFail();
+        $this->assertNotSame($child->id, $moved->id);
+        Storage::disk('local')->assertMissing(CONTENT_SUBDIR . '/shared/child.txt');
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . '/private/child.txt');
+        $this->assertSame('private child bytes', Storage::disk('local')->get(CONTENT_SUBDIR . '/private/child.txt'));
+
+        $this->logout();
+        $this->postCheckPassword($slug, 'password')->assertRedirect('/shared/' . $slug);
+        $download = $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$moved->id],
+            'slug' => $slug,
+        ]);
+
+        $download->assertOk();
+        $download->assertJson([
+            'status' => false,
+            'message' => 'Error: authorization issue',
+        ]);
+        $this->assertStringNotContainsString('private child bytes', $download->getContent());
+    }
+
+    public function test_directory_share_follows_directory_moved_to_existing_target(): void
+    {
+        $this->postUpload([
+            UploadedFile::fake()->createWithContent('source/child.txt', 'moved directory child bytes'),
+            UploadedFile::fake()->createWithContent('target/.keep', ''),
+        ], '');
+        $source = LocalFile::where('filename', 'source')->where('public_path', '')->firstOrFail();
+        $slug = 'moved-dir-share';
+        $this->createShare([$source->id], 'password', 7, $slug);
+
+        $this->post(route('drive.move-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$source->id],
+            'path' => 'target',
+        ])->assertSessionHas('status', true);
+
+        $this->assertDatabaseMissing('local_files', ['filename' => 'source', 'public_path' => '']);
+        $this->assertDatabaseMissing('local_files', ['filename' => 'child.txt', 'public_path' => 'source']);
+        Storage::disk('local')->assertMissing(CONTENT_SUBDIR . '/source/child.txt');
+        $this->assertDatabaseHas('local_files', ['filename' => 'source', 'public_path' => 'target']);
+        $this->assertDatabaseHas('local_files', ['filename' => 'child.txt', 'public_path' => 'target/source']);
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . '/target/.keep');
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . '/target/source/child.txt');
+        $movedChild = LocalFile::where('filename', 'child.txt')->where('public_path', 'target/source')->firstOrFail();
+
+        $this->logout();
+        $this->postCheckPassword($slug, 'password')->assertRedirect('/shared/' . $slug);
+        $download = $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$movedChild->id],
+            'slug' => $slug,
+        ]);
+
+        $download->assertHeader('Content-Disposition', 'attachment; filename=child.txt');
+        $this->assertSame('moved directory child bytes', $download->streamedContent());
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
