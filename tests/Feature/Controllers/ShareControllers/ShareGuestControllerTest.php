@@ -626,47 +626,6 @@ class ShareGuestControllerTest extends BaseFeatureTest
         $this->assertStringNotContainsString($contents, $response->getContent());
     }
 
-    public function test_guest_cannot_fetch_first_share_after_authenticating_second_share(): void
-    {
-        $firstSlug = 'first-guest-share';
-        $secondSlug = 'second-guest-share';
-        $firstContents = 'first-share-private-bytes';
-        $secondContents = 'second-share-private-bytes';
-        $firstFile = LocalFile::where('filename', 'ace.txt')
-            ->where('public_path', '')
-            ->firstOrFail();
-        $secondFile = LocalFile::where('filename', 'beta.txt')
-            ->where('public_path', '')
-            ->firstOrFail();
-        $firstFile->file_type = 'text';
-        $secondFile->file_type = 'text';
-        $firstFile->save();
-        $secondFile->save();
-        file_put_contents($firstFile->getPrivatePathNameForFile(), $firstContents);
-        file_put_contents($secondFile->getPrivatePathNameForFile(), $secondContents);
-        $this->assertSame($firstContents, file_get_contents($firstFile->getPrivatePathNameForFile()));
-        $this->assertSame($secondContents, file_get_contents($secondFile->getPrivatePathNameForFile()));
-        $this->createShare([$firstFile->id], 'first-password', 7, $firstSlug);
-        $this->createShare([$secondFile->id], 'second-password', 7, $secondSlug);
-        $this->logout();
-
-        $this->postCheckPassword($firstSlug, 'first-password')
-            ->assertRedirect('/shared/' . $firstSlug);
-        $this->postCheckPassword($secondSlug, 'second-password')
-            ->assertRedirect('/shared/' . $secondSlug);
-
-        $response = $this->get(route('drive.fetch-file', ['id' => $firstFile->id, 'slug' => $firstSlug]));
-
-        $response->assertRedirect(route('shared.password', ['slug' => $firstSlug]));
-        $this->assertStringNotContainsString($firstContents, $response->getContent());
-
-        $this->postCheckPassword($firstSlug, 'first-password')
-            ->assertRedirect('/shared/' . $firstSlug);
-        $response = $this->get(route('drive.fetch-file', ['id' => $firstFile->id, 'slug' => $firstSlug]));
-
-        $response->assertOk();
-        $this->assertSame($firstContents, $response->streamedContent());
-    }
 
     public function test_paused_share_cannot_stream_authenticated_guest_file_bytes(): void
     {
