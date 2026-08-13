@@ -36,14 +36,12 @@ const ReplaceAbort = ({
         <Modal
             isOpen={isReplaceAbortModalOpen}
             onClose={handleCloseModal}
-            title="Duplicates found"
+            title="Some Duplicates found"
             classes=""
             shouldCloseOnOverlayClick={false}
         >
             <div className="text-gray-400  text-sm mb-4">
-                We found files/folders that already exist.
-                <br />
-                How to handle these duplicates ?
+                Replace them with the uploaded files?
             </div>
             <div className="space-y-2">
                 <form
@@ -61,7 +59,7 @@ const ReplaceAbort = ({
                                     setData("action", e.target.value)
                                 }
                             />
-                            <span className="ml-2">Skip Duplicates</span>
+                            <span className="ml-2">Keep existing</span>
                         </label>
                         <label className="inline-flex items-center hover:text-blue-300 w-full py-1">
                             <input
@@ -73,7 +71,7 @@ const ReplaceAbort = ({
                                     setData("action", e.target.value)
                                 }
                             />
-                            <span className="ml-2">Overwrite Everything</span>
+                            <span className="ml-2">Replace with uploaded</span>
                         </label>
                     </div>
                     <button
