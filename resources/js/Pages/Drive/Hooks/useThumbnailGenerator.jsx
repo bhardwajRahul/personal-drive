@@ -14,9 +14,12 @@ const useThumbnailGenerator = (files, path) => {
                 only: ["files", "flash"],
                 preserveScroll: true,
                 onSuccess: () => {
+                    if (window.location.pathname !== path) return;
                     const remainingIds = idsReversed.slice(BATCH_SIZE);
                     if (remainingIds.length > 0) {
-                        generateThumbnails(remainingIds);
+                        window.setTimeout(() =>
+                            generateThumbnails(remainingIds), 0
+                        );
                     }
                 },
             },
