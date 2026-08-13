@@ -68,6 +68,8 @@ const FileTileViewCard = React.memo(function FileTileViewCard({
                                 <img
                                     src={imageSrc}
                                     alt="Thumbnail"
+                                    loading="lazy"
+                                    decoding="async"
                                     className="object-contain max-h-full max-w-full"
                                 />
                             ) : (
