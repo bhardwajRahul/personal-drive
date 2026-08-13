@@ -25,6 +25,9 @@ class FileMoveService
     {
         $successfulUploads = [];
         $localFiles = LocalFile::getByIds($fileKeyArray)->get();
+        $localFiles = $localFiles->sortBy(
+            fn (LocalFile $file) => strlen($file->getPublicPathPlusName())
+        );
         if (!$localFiles->count()) {
             throw FileMoveException::noValidFiles();
         }
@@ -34,7 +37,6 @@ class FileMoveService
         if (!$destinationPrivatePath || !file_exists($destinationPrivatePath) || !is_dir($destinationPrivatePath)) {
             throw FileMoveException::invalidDestinationPath();
         }
-
         foreach ($localFiles as $localFile) {
             $this->moveSingleFileOrDirectory(
                 $localFile,
@@ -59,7 +61,7 @@ class FileMoveService
         $itemPathName =  $localFile->getFullPathFromContentRoot();
         $itemPublicDestPathName = $localFile->getFullPathFromContentRoot('', $desPublicPath);
 
-        if (!$this->fileOperationsService->fileExists($itemPathName) 
+        if (!$this->fileOperationsService->fileExists($itemPathName)
             && !$this->fileOperationsService->directoryExists($itemPathName)
         ) {
             return;

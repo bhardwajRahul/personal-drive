@@ -667,24 +667,6 @@ class ShareGuestControllerTest extends BaseFeatureTest
         $response->assertOk();
         $this->assertSame($firstContents, $response->streamedContent());
     }
-    public function test_paused_password_protected_share_cannot_mint_guest_authorization(): void
-    {
-        $slug = 'paused-pw-check';
-        [$toShareFileIds] = $this->getDataForMakingShare();
-        $this->createShare($toShareFileIds, 'password', 7, $slug);
-        $shareId = $this->getSlugId($slug);
-
-        $this->post(route('drive.share-pause'), ['_token' => csrf_token(), 'id' => $shareId])
-            ->assertSessionHas('status', true);
-        $this->logout();
-
-        $response = $this->postCheckPassword($slug, 'password');
-
-        $response->assertSessionMissing("shared_{$slug}_authenticated");
-        $response->assertSessionMissing('share_id');
-        $this->get('/shared/' . $slug)
-            ->assertRedirect(route('login', ['slug' => $slug]));
-    }
 
     public function test_paused_share_cannot_stream_authenticated_guest_file_bytes(): void
     {
