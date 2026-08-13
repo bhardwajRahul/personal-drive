@@ -213,7 +213,9 @@ class UploadControllerTest extends BaseFeatureTest
         );
 
         $response->assertSessionHas('status', true);
-        $response->assertSessionHas('message', 'Overwritten successfully');
+        $response->assertSessionHas('message', 'New files copied: 2. Files overwritten: 2');
+        $response->assertSessionMissing('new_file_copied_num');
+        $response->assertSessionMissing('duplicate_files_num');
     }
 
     public function uploadDuplicates()
@@ -257,8 +259,31 @@ class UploadControllerTest extends BaseFeatureTest
         );
 
         $response->assertSessionHas('status', true);
-        $response->assertSessionHas('message', 'Aborted Overwrite');
+        $response->assertSessionHas('message', 'New files copied: 2. Files skipped: 2');
+        $response->assertSessionMissing('new_file_copied_num');
+        $response->assertSessionMissing('duplicate_files_num');
         $this->assertDirectoryDoesNotExist($this->tempRootDir);
+    }
+
+    public function test_create_upload_folder_duplicates_only_abort()
+    {
+        $testPath = 'some/path';
+        $files = ['foo/file1'];
+        $this->uploadMultipleFiles($testPath, $files);
+        $this->uploadMultipleFiles($testPath, $files)
+            ->assertSessionHas('message', 'Duplicates Detected');
+
+        $response = $this->post(
+            route('drive.abort-replace'), [
+            '_token' => csrf_token(),
+            'action' => 'abort'
+            ]
+        );
+
+        $response->assertSessionHas('status', true);
+        $response->assertSessionHas('message', 'New files copied: 0. Files skipped: 1');
+        $response->assertSessionMissing('new_file_copied_num');
+        $response->assertSessionMissing('duplicate_files_num');
     }
 
     public function mockFileOperations()

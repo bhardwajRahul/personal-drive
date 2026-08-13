@@ -61,6 +61,10 @@ class UploadController extends Controller
         }
 
         if ($duplicatesDetected > 0) {
+            session([
+                'new_file_copied_num' => $successfulUploads,
+                'duplicate_files_num' => $duplicatesDetected,
+            ]);
             $this->localFileStatsService->generateStats($publicPath);
             return $this->success('Duplicates Detected', ['replaceAbort' => true]);
         }
@@ -168,7 +172,12 @@ class UploadController extends Controller
     {
         if ($request->action === 'abort') {
             $this->uploadService->cleanOldTempFiles();
-            return $this->success('Aborted Overwrite');
+            $new_file_copied_num = session()->pull('new_file_copied_num') ?? 0;
+            $duplicate_files_num = session()->pull('duplicate_files_num') ?? 0;
+
+            return $this->success(
+                'New files copied: ' . $new_file_copied_num . '. Files skipped: ' . $duplicate_files_num
+            );
         }
         if ($request->action === 'overwrite') {
             $res = $this->uploadService->syncTempToStorage();
@@ -176,7 +185,12 @@ class UploadController extends Controller
                 return $this->error('overwriting failed !');
             }
 
-            return $this->success('Overwritten successfully');
+            $new_file_copied_num = session()->pull('new_file_copied_num') ?? 0;
+            $duplicate_files_num = session()->pull('duplicate_files_num') ?? 0;
+
+            return $this->success(
+                'New files copied: ' . $new_file_copied_num . '. Files overwritten: ' . $duplicate_files_num
+            );
         }
         return Redirect::back();
     }

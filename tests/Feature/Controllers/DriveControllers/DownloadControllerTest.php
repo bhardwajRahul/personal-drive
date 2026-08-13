@@ -65,7 +65,7 @@ class DownloadControllerTest extends BaseFeatureTest
             ]
         );
         $overwriteResponse->assertSessionHas('status', true);
-        $overwriteResponse->assertSessionHas('message', 'Overwritten successfully');
+        $overwriteResponse->assertSessionHas('message', 'New files copied: 0. Files overwritten: 1');
 
         $this->assertSame(
             $file->id,
