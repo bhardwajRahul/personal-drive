@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\ShareControllers;
 
 use App\Exceptions\PersonalDriveExceptions\ShareFileException;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\DriveRequests\ShareFilesGenRequest;
 use App\Models\LocalFile;
 use App\Models\Share;
@@ -14,7 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
-class ShareFilesGenController
+class ShareFilesGenController extends Controller
 {
     use FlashMessages;
 

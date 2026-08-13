@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\ShareControllers;
 
 use App\Exceptions\PersonalDriveExceptions\ShareFileException;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\DriveRequests\ShareFilesGuestPasswordRequest;
 use App\Http\Requests\DriveRequests\ShareFilesGuestRequest;
 use App\Models\LocalFile;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\Session;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class ShareFilesGuestController
+class ShareFilesGuestController extends Controller
 {
     public function index(ShareFilesGuestRequest $request): Response
     {

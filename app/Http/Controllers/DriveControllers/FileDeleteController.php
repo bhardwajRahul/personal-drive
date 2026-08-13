@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\DriveControllers;
 
+use App\Http\Controllers\Controller;
 use App\Http\Requests\DriveRequests\FileDeleteRequest;
 use App\Models\LocalFile;
 use App\Services\FileDeleteService;
@@ -10,7 +11,7 @@ use App\Services\PathService;
 use App\Traits\FlashMessages;
 use Illuminate\Http\RedirectResponse;
 
-class FileDeleteController
+class FileDeleteController extends Controller
 {
     use FlashMessages;
 

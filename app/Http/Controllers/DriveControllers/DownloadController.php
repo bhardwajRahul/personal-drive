@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\DriveControllers;
 
 use App\Helpers\ResponseHelper;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\DriveRequests\DownloadRequest;
 use App\Models\LocalFile;
 use App\Services\DownloadService;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Session;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
-class DownloadController
+class DownloadController extends Controller
 {
     use GuestResourceAuthorize;
 
