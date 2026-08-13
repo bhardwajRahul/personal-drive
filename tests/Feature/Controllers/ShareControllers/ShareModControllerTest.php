@@ -5,6 +5,7 @@ namespace Tests\Feature\Controllers\ShareControllers;
 use App\Exceptions\PersonalDriveExceptions\ShareFileException;
 use App\Models\LocalFile;
 use App\Models\Share;
+use App\Models\User;
 use App\Models\SharedFile;
 use App\Services\LocalFileStatsService;
 use App\Services\PathService;
@@ -51,6 +52,54 @@ class ShareModControllerTest extends BaseFeatureTest
             'id' => $id,
             ]
         );
+    }
+
+    public function test_anonymous_guest_cannot_pause_existing_share()
+    {
+        $this->createMultipleShares(['anonymous-pause-share']);
+        $shareId = $this->getSlugId('anonymous-pause-share');
+        $this->logout();
+
+        $this->pauseShare($shareId)
+            ->assertRedirect(route('login'));
+
+        $this->assertDatabaseHas('shares', ['id' => $shareId, 'enabled' => 1]);
+    }
+
+    public function test_anonymous_guest_cannot_delete_existing_share()
+    {
+        $this->createMultipleShares(['anonymous-delete-share']);
+        $shareId = $this->getSlugId('anonymous-delete-share');
+        $this->logout();
+
+        $this->deleteShare($shareId)
+            ->assertRedirect(route('login'));
+
+        $this->assertDatabaseHas('shares', ['id' => $shareId, 'enabled' => 1]);
+    }
+
+    public function test_non_admin_cannot_pause_existing_share()
+    {
+        $this->createMultipleShares(['non-admin-pause-share']);
+        $shareId = $this->getSlugId('non-admin-pause-share');
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        $this->pauseShare($shareId)
+            ->assertRedirect(route('rejected', ['message' => 'You do not have admin access']));
+
+        $this->assertDatabaseHas('shares', ['id' => $shareId, 'enabled' => 1]);
+    }
+
+    public function test_non_admin_cannot_delete_existing_share()
+    {
+        $this->createMultipleShares(['non-admin-delete-share']);
+        $shareId = $this->getSlugId('non-admin-delete-share');
+        $this->actingAs(User::factory()->create(['is_admin' => false]));
+
+        $this->deleteShare($shareId)
+            ->assertRedirect(route('rejected', ['message' => 'You do not have admin access']));
+
+        $this->assertDatabaseHas('shares', ['id' => $shareId, 'enabled' => 1]);
     }
 
     public function test_delete_success()

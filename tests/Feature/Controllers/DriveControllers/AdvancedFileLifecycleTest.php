@@ -359,6 +359,108 @@ class AdvancedFileLifecycleTest extends BaseFeatureTest
         $response->assertJson(['status' => false, 'message' => 'Could not find files to download']);
     }
 
+    public function test_aborting_mixed_duplicate_upload_preserves_original_and_keeps_new_file(): void
+    {
+        $this->postUpload([UploadedFile::fake()->createWithContent('a.txt', 'original a')], '');
+        $original = LocalFile::where('filename', 'a.txt')->where('public_path', '')->firstOrFail();
+
+        $this->postUpload([
+            UploadedFile::fake()->createWithContent('a.txt', 'staged duplicate a'),
+            UploadedFile::fake()->createWithContent('b.txt', 'new b'),
+        ], '')->assertSessionHas('message', 'Duplicates Detected');
+        $this->post(route('drive.abort-replace'), ['_token' => csrf_token(), 'action' => 'abort'])
+            ->assertSessionHas('status', true);
+
+        $newFile = LocalFile::where('filename', 'b.txt')->where('public_path', '')->firstOrFail();
+        $this->assertSame('original a', $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$original->id],
+        ])->streamedContent());
+        $this->assertSame('new b', $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$newFile->id],
+        ])->streamedContent());
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . '/b.txt');
+    }
+
+    public function test_overwriting_directly_shared_file_preserves_owner_record_and_serves_replacement_to_guest(): void
+    {
+        $this->postUpload([UploadedFile::fake()->createWithContent('shared.txt', 'original bytes')], '');
+        $shared = LocalFile::where('filename', 'shared.txt')->where('public_path', '')->firstOrFail();
+        $slug = 'direct-overwrite';
+        $this->createShare([$shared->id], 'password', 7, $slug);
+
+        $this->postUpload([UploadedFile::fake()->createWithContent('shared.txt', 'replacement bytes')], '')
+            ->assertSessionHas('message', 'Duplicates Detected');
+        $this->post(route('drive.abort-replace'), ['_token' => csrf_token(), 'action' => 'overwrite'])
+            ->assertSessionHas('status', true);
+
+        $this->assertDatabaseHas('local_files', ['id' => $shared->id, 'filename' => 'shared.txt']);
+        $this->logout();
+        $this->postCheckPassword($slug, 'password')->assertRedirect('/shared/' . $slug);
+        $guestDownload = $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$shared->id],
+            'slug' => $slug,
+        ]);
+        $guestDownload->assertOk();
+        $this->assertSame('replacement bytes', $guestDownload->streamedContent());
+    }
+
+    public function test_deleting_parent_and_selected_descendant_removes_tree_and_preserves_sibling(): void
+    {
+        $this->uploadMultipleFiles('', [
+            'drop/a.txt',
+            'drop/deep/b.txt',
+            'keep.txt',
+        ]);
+        $drop = LocalFile::where('filename', 'drop')->where('public_path', '')->firstOrFail();
+        $descendant = LocalFile::where('filename', 'b.txt')->where('public_path', 'drop/deep')->firstOrFail();
+        $keep = LocalFile::where('filename', 'keep.txt')->where('public_path', '')->firstOrFail();
+
+        $this->post(route('drive.delete-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$drop->id, $descendant->id],
+        ])->assertSessionHas('status', true);
+
+        foreach ([$drop->id, $descendant->id] as $id) {
+            $this->assertDatabaseMissing('local_files', ['id' => $id]);
+        }
+        $this->assertDatabaseMissing('local_files', ['filename' => 'a.txt', 'public_path' => 'drop']);
+        $this->assertDatabaseMissing('local_files', ['filename' => 'deep', 'public_path' => 'drop']);
+        Storage::disk('local')->assertMissing(CONTENT_SUBDIR . '/drop');
+        $this->assertDatabaseHas('local_files', ['id' => $keep->id]);
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . '/keep.txt');
+    }
+
+    public function test_old_directory_share_cannot_access_reuploaded_child_after_directory_deletion(): void
+    {
+        $this->postUpload([UploadedFile::fake()->createWithContent('shared/child.txt', 'original child')], '');
+        $directory = LocalFile::where('filename', 'shared')->where('public_path', '')->firstOrFail();
+        $slug = 'old-dir-reupload';
+        $this->createShare([$directory->id], 'password', 7, $slug);
+
+        $this->post(route('drive.delete-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$directory->id],
+        ])->assertSessionHas('status', true);
+        $this->postUpload([UploadedFile::fake()->createWithContent('shared/child.txt', 'replacement child')], '');
+        $replacement = LocalFile::where('filename', 'child.txt')->where('public_path', 'shared')->firstOrFail();
+
+        $this->assertNotSame($directory->id, LocalFile::where('filename', 'shared')->where('public_path', '')->firstOrFail()->id);
+        $this->logout();
+        $this->postCheckPassword($slug, 'password')->assertRedirect('/shared/' . $slug);
+        $response = $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$replacement->id],
+            'slug' => $slug,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['status' => false, 'message' => 'Error: authorization issue']);
+        $this->assertStringNotContainsString('replacement child', $response->getContent());
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
