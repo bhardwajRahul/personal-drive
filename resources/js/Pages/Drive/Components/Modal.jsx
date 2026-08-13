@@ -13,7 +13,7 @@ const Modal = ({
                 onClick={() => shouldCloseOnOverlayClick && onClose(false)}
             >
                 <div
-                    className={`rounded-lg shadow-xl  mx-4 ${classes}`}
+                    className={`bg-gray-900 rounded-lg shadow-xl  mx-4 ${classes}`}
                     onClick={(e) => e.stopPropagation()}
                 >
                     {title && (
