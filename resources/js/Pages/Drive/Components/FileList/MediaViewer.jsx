@@ -2,11 +2,19 @@ import Modal from "@/Pages/Drive/Components/Modal.jsx";
 import VideoPlayer from "./VideoPlayer.jsx";
 import ImageViewer from "./ImageViewer.jsx";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import PdfViewer from "@/Pages/Drive/Components/FileList/PdfViewer.jsx";
-import TxtViewer from "@/Pages/Drive/Components/FileList/TxtViewer.jsx";
+import {
+    lazy,
+    Suspense,
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 import HtmlViewer from "@/Pages/Drive/Components/FileList/HtmlViewer.jsx";
 import AudioPlayer from "@/Pages/Drive/Components/FileList/AudioPlayer.jsx";
+
+const PdfViewer = lazy(() => import("./PdfViewer.jsx"));
+const TxtViewer = lazy(() => import("./TxtViewer.jsx"));
 
 const MediaViewer = ({
     previewFile,
@@ -134,35 +142,43 @@ const MediaViewer = ({
                             <ChevronRight className="text-white h-4 w-4 md:h-8 md:w-8 rounded-full" />
                         </button>
                     )}
-                {selectedid &&
-                    ((selectedFileType === "video" && (
-                        <VideoPlayer id={selectedid} slug={slug} />
-                    )) ||
-                        (selectedFileType === "image" && (
-                            <ImageViewer id={selectedid} slug={slug} />
+                <Suspense
+                    fallback={
+                        <div className="p-4 text-center text-gray-300">
+                            Loading viewer...
+                        </div>
+                    }
+                >
+                    {selectedid &&
+                        ((selectedFileType === "video" && (
+                            <VideoPlayer id={selectedid} slug={slug} />
                         )) ||
-                        (selectedFileType === "audio" && (
-                            <AudioPlayer id={selectedid} slug={slug} />
-                        )) ||
-                        (selectedFileType === "html" && (
-                            <HtmlViewer id={selectedid} slug={slug} />
-                        )) ||
-                        (selectedFileType === "pdf" && (
-                            <PdfViewer id={selectedid} slug={slug} />
-                        )) ||
-                        ((selectedFileType === "text" ||
-                            selectedFileType === "empty") && (
-                            <TxtViewer
-                                key={previewFile.id}
-                                previewFile={previewFile}
-                                slug={slug}
-                                isEditingRef={isEditingRef}
-                                isFocusedRef={isFocusedRef}
-                                isInEditMode={isInEditMode}
-                                setIsInEditMode={setIsInEditMode}
-                                isAdmin={isAdmin}
-                            />
-                        )))}
+                            (selectedFileType === "image" && (
+                                <ImageViewer id={selectedid} slug={slug} />
+                            )) ||
+                            (selectedFileType === "audio" && (
+                                <AudioPlayer id={selectedid} slug={slug} />
+                            )) ||
+                            (selectedFileType === "html" && (
+                                <HtmlViewer id={selectedid} slug={slug} />
+                            )) ||
+                            (selectedFileType === "pdf" && (
+                                <PdfViewer id={selectedid} slug={slug} />
+                            )) ||
+                            ((selectedFileType === "text" ||
+                                selectedFileType === "empty") && (
+                                <TxtViewer
+                                    key={previewFile.id}
+                                    previewFile={previewFile}
+                                    slug={slug}
+                                    isEditingRef={isEditingRef}
+                                    isFocusedRef={isFocusedRef}
+                                    isInEditMode={isInEditMode}
+                                    setIsInEditMode={setIsInEditMode}
+                                    isAdmin={isAdmin}
+                                />
+                            )))}
+                </Suspense>
             </div>
         </Modal>
     );
