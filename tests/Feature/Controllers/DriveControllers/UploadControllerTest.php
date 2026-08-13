@@ -218,6 +218,47 @@ class UploadControllerTest extends BaseFeatureTest
         $response->assertSessionMissing('duplicate_files_num');
     }
 
+    public function test_overwrite_merges_nested_folder_upload_without_deleting_destination_only_files(): void
+    {
+        $this->postUpload([
+            UploadedFile::fake()->createWithContent('workspace/replaced.txt', 'old content'),
+            UploadedFile::fake()->createWithContent('workspace/old-only.txt', 'keep me'),
+            UploadedFile::fake()->createWithContent('workspace/archive/deep.txt', 'keep nested'),
+        ], '');
+        $original = LocalFile::where('filename', 'replaced.txt')
+            ->where('public_path', 'workspace')
+            ->firstOrFail();
+
+        $this->postUpload([
+            UploadedFile::fake()->createWithContent('workspace/replaced.txt', 'new content'),
+            UploadedFile::fake()->createWithContent('workspace/new-only.txt', 'add me'),
+            UploadedFile::fake()->createWithContent('workspace/new/deep.txt', 'add nested'),
+        ], '')->assertSessionHas('message', 'Duplicates Detected');
+
+        $disk = Storage::disk('local');
+        $this->assertSame('old content', $disk->get(CONTENT_SUBDIR . '/workspace/replaced.txt'));
+        $this->assertSame('add me', $disk->get(CONTENT_SUBDIR . '/workspace/new-only.txt'));
+        $this->post(route('drive.abort-replace'), [
+            '_token' => csrf_token(),
+            'action' => 'overwrite',
+        ])->assertSessionHas('message', 'New files copied: 2. Files overwritten: 1');
+
+        $this->assertSame('new content', $disk->get(CONTENT_SUBDIR . '/workspace/replaced.txt'));
+        $this->assertSame('keep me', $disk->get(CONTENT_SUBDIR . '/workspace/old-only.txt'));
+        $this->assertSame('keep nested', $disk->get(CONTENT_SUBDIR . '/workspace/archive/deep.txt'));
+        $this->assertSame('add me', $disk->get(CONTENT_SUBDIR . '/workspace/new-only.txt'));
+        $this->assertSame('add nested', $disk->get(CONTENT_SUBDIR . '/workspace/new/deep.txt'));
+        $this->assertDatabaseHas('local_files', [
+            'id' => $original->id,
+            'filename' => 'replaced.txt',
+            'public_path' => 'workspace',
+        ]);
+        $this->assertSame(
+            1,
+            LocalFile::where('filename', 'replaced.txt')->where('public_path', 'workspace')->count()
+        );
+    }
+
     public function uploadDuplicates()
     {
         $testPath = 'some/path';
