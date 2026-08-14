@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { DownloadIcon } from "lucide-react";
 import Button from "./Generic/Button.jsx";
 import NProgress from "nprogress";
@@ -8,12 +9,12 @@ const DownloadButton = ({
     selectedFiles,
     classes,
     setStatusMessage,
-    statusMessage,
     setSelectAllToggle,
     slug,
     setAlertStatus,
     ...props
 }) => {
+    const [isDownloading, setIsDownloading] = useState(false);
     function generateAndClickDownloadLink(response) {
         // Create blob link to download
         const blob = new Blob([response.data], {
@@ -38,66 +39,66 @@ const DownloadButton = ({
 
     const handleDownload = async (e) => {
         e.stopPropagation();
-        let response = {};
+        setIsDownloading(true);
         NProgress.start();
+
         try {
             setStatusMessage("Downloading...");
             setAlertStatus(true);
-            // setIsLoading(true);
-            let formData = {
+            const formData = {
                 fileList: Array.from(selectedFiles),
             };
-            if (slug) {
-                formData["slug"] = slug;
-            }
-            NProgress.start();
 
-            response = await axios({
+            if (slug) {
+                formData.slug = slug;
+            }
+
+            const response = await axios({
                 url: "/download-files",
                 method: "POST",
                 responseType: "blob",
                 data: formData,
-                onDownloadProgress: (e) => {
-                    if (!e.total) return;
-                    NProgress.set(e.loaded / e.total);
+                onDownloadProgress: (event) => {
+                    if (!event.total) return;
+                    NProgress.set(event.loaded / event.total);
                 },
             });
-            NProgress.done();
-        } catch {
-            NProgress.done(true);
-            setAlertStatus(false);
-            setStatusMessage("Download failed");
-            return;
-        } finally {
-            setSelectedFiles?.(new Set());
-            setSelectAllToggle?.(false);
-        }
-        setStatusMessage("");
-        // Check if the response is JSON
-        const contentType = response.headers["content-type"];
-        if (contentType && contentType == "application/json") {
-            // Convert blob to JSON
-            const text = await response.data.text();
-            const jsonResponse = JSON.parse(text);
-            if (!jsonResponse.status && !jsonResponse.message) {
+
+            setStatusMessage("");
+            const contentType = response.headers["content-type"];
+
+            if (contentType === "application/json") {
+                const jsonResponse = JSON.parse(await response.data.text());
+
+                if (!jsonResponse.status && !jsonResponse.message) {
+                    generateAndClickDownloadLink(response);
+                }
+
+                if (!jsonResponse.status && jsonResponse.message) {
+                    setAlertStatus(jsonResponse.status);
+                    setStatusMessage("Download failed " + jsonResponse.message);
+                }
+            } else {
                 generateAndClickDownloadLink(response);
             }
-            if (!jsonResponse.status && jsonResponse.message) {
-                setAlertStatus(jsonResponse.status);
-                setStatusMessage("Download failed " + jsonResponse.message);
-            }
-        } else {
-            generateAndClickDownloadLink(response);
+        } catch {
+            setAlertStatus(false);
+            setStatusMessage("Download failed");
+        } finally {
+            NProgress.done();
+            setIsDownloading(false);
+            setSelectedFiles?.(new Set());
+            setSelectAllToggle?.(false);
         }
     };
     return (
         <Button
-            classes={`border border-green-800 text-green-200 hover:bg-green-950 active:bg-gray-900 ${classes} ${statusMessage ? "cursor-not-allowed" : ""}`}
+            classes={`border border-green-800 text-green-200 hover:bg-green-950 active:bg-gray-900 ${classes} ${isDownloading ? "cursor-not-allowed" : ""}`}
             {...props}
-            disabled={statusMessage}
+            disabled={isDownloading}
             onClick={handleDownload}
         >
-            {statusMessage ? (
+            {isDownloading ? (
                 <div className="w-5 h-5 border-t-2 border-blue-300 border-solid rounded-full animate-spin"></div>
             ) : (
                 <>
