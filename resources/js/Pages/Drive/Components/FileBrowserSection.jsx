@@ -25,7 +25,7 @@ import CutButton from "./CutButton.jsx";
 import PasteButton from "./PasteButton.jsx";
 import { CutFilesContext } from "../../../Contexts/CutFilesContext.jsx";
 
-const FileBrowserSection = memo(({ files, path, token, isAdmin, slug }) => {
+const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExists }) => {
     const {
         selectAllToggle,
         handleSelectAllToggle,
@@ -353,7 +353,9 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug }) => {
                 {filesCopy.length === 0 && (
                     <div className="py-20 w-full">
                         <div className="flex items-center justify-center gap-x-4 ">
-                            <span className="text-xl">Empty Results</span>
+                            <span className="text-xl">
+                                {folderExists ? "Empty Results" : "This folder does not exist"}
+                            </span>
                             <button
                                 className="p-2 rounded-md bg-gray-700 hover:bg-gray-600"
                                 onClick={() => navigate(-1)}

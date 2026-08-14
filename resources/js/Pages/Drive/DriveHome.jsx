@@ -1,7 +1,7 @@
 import Header from "@/Pages/Drive/Layouts/Header.jsx";
 import FileBrowserSection from "@/Pages/Drive/Components/FileBrowserSection.jsx";
 
-export default function DriveHome({ files, path, token }) {
+export default function DriveHome({ files, path, token, folderExists }) {
     return (
         <>
             <Header />
@@ -12,6 +12,7 @@ export default function DriveHome({ files, path, token }) {
                         path={path}
                         token={token}
                         isAdmin={true}
+                        folderExists={folderExists}
                     />
                 </div>
             </div>
