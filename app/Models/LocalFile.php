@@ -64,6 +64,7 @@ class LocalFile extends Model
         return $fileItems->map(
             function ($item) {
                 $item->sizeText = self::getItemSizeText($item);
+                $item->date = filemtime($item->getPrivatePathNameForFile());
                 return $item;
             }
         );

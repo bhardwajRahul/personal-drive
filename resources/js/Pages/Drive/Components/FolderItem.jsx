@@ -34,7 +34,7 @@ const FolderItem = React.memo(function FolderItem({
                 className={`min-w-0 flex-1 ${isSelected ? "bg-blue-100" : ""}`}
                 preserveScroll
             >
-                <div className="flex min-w-0 items-center p-1 sm:p-2 md:p-4">
+                <div className="flex min-w-0 items-center p-1 sm:p-2">
                     <Folder
                         className={`mr-2 text-yellow-600 min-w-3 min-h-3 max-w-3 max-h-3`}
                     />
@@ -45,7 +45,7 @@ const FolderItem = React.memo(function FolderItem({
                 </div>
             </Link>
 
-            <div className="hidden md:flex gap-x-1">
+            <div className="hidden lg:flex gap-x-1">
                 {isAdmin && (
                     <DeleteButton
                         classes="hidden group-hover:block mr-2  z-10"

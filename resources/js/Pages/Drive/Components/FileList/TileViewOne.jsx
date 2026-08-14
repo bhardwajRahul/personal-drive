@@ -69,6 +69,15 @@ const TileViewOne = ({
                         />
                     </button>
                     <button
+                        className={`flex items-center p-1 rounded-md bg-gray-700 hover:bg-gray-600  ${sortDetails.key === "date" ? "bg-gray-900 border border-gray-500/80 text-blue-400" : ""}`}
+                        onClick={(e) => handleSortClick(e, "date")}
+                    >
+                        Date{" "}
+                        <SortIcon
+                            classes={`${sortDetails.key === "date" ? "text-blue-500" : "gray"} `}
+                        />
+                    </button>
+                    <button
                         className={`flex items-center p-1 rounded-md bg-gray-700 hover:bg-gray-600  ${sortDetails.key === "file_type" ? "bg-gray-900 border border-gray-500/80  text-blue-400" : ""}`}
                         onClick={(e) => handleSortClick(e, "file_type")}
                     >
