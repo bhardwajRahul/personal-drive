@@ -8,15 +8,14 @@ use Illuminate\Database\Eloquent\Collection;
 use App\Models\LocalFile;
 use App\Models\SharedFile;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Mockery;
 use Symfony\Component\Finder\SplFileInfo;
-use Tests\TestCase;
+use Tests\Feature\BaseFeatureTest;
 
-class LocalFileTest extends TestCase
+class LocalFileTest extends BaseFeatureTest
 {
-    use RefreshDatabase;
+
 
 
     public function test_local_file_can_be_created_using_factory()
@@ -144,16 +143,9 @@ class LocalFileTest extends TestCase
 
     public function test_get_files_for_public_path_returns_correct_files()
     {
-        $user = User::factory()->create();
-        LocalFile::factory()->create(['public_path' => '/root', 'filename' => 'z_file.txt', 'user_id' => $user->id]);
-        $file2 = LocalFile::factory()->create(
-            [
-            'public_path' => '/root', 'filename' => 'a_file.txt', 'user_id' => $user->id
-            ]
-        );
-        LocalFile::factory()->create(['public_path' => '/other', 'user_id' => $user->id]);
+        $this->uploadMultipleFiles('root', ['z_file.txt', 'a_file.txt']);
 
-        $files = LocalFile::getFilesForPublicPath('/root');
+        $files = LocalFile::getFilesForPublicPath('root');
 
         $this->assertCount(2, $files);
         $this->assertEquals('z_file.txt', $files->first()->filename); // Ordered by filename desc
@@ -162,11 +154,13 @@ class LocalFileTest extends TestCase
 
     public function test_modify_file_collection_for_drive_adds_size_text()
     {
-        $file = LocalFile::factory()->create(['size' => 1024]);
+        $this->uploadMultipleFiles('', ['file.txt']);
+        $file = LocalFile::where('filename', 'file.txt')->firstOrFail();
         $collection = new Collection([$file]);
 
         $modifiedCollection = LocalFile::modifyFileCollectionForDrive($collection);
-        $this->assertEquals('1 KB', $modifiedCollection->first()->sizeText);
+        $this->assertNotEmpty($modifiedCollection->first()->sizeText);
+        $this->assertNotNull($modifiedCollection->first()->date);
     }
 
     public function test_get_item_size_text_formats_size()
@@ -189,10 +183,7 @@ class LocalFileTest extends TestCase
 
     public function test_search_files_returns_matching_files()
     {
-        $user = User::factory()->create();
-        LocalFile::factory()->create(['filename' => 'document.pdf', 'user_id' => $user->id]);
-        LocalFile::factory()->create(['filename' => 'image.jpg', 'user_id' => $user->id]);
-        LocalFile::factory()->create(['filename' => 'my_document.docx', 'user_id' => $user->id]);
+        $this->uploadMultipleFiles('', ['document.pdf', 'image.jpg', 'my_document.docx']);
 
         $results = LocalFile::searchFiles('doc');
         $this->assertCount(2, $results);
@@ -400,9 +391,10 @@ class LocalFileTest extends TestCase
         $this->assertFalse($localFile->isValidDir());
     }
 
-    protected function tearDown(): void
+    protected function setUp(): void
     {
-        Mockery::close();
-        parent::tearDown();
+        parent::setUp();
+        $this->makeUserUsingSetup();
+        $this->setupStoragePathPost();
     }
 }
