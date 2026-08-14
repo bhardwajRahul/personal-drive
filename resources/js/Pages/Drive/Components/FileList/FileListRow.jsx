@@ -20,6 +20,7 @@ const FileListRow = React.memo(function FileListRow({
     setIsRenameModalOpen,
     setFileToRename,
 }) {
+    const [sizeValue, sizeUnit] = file.sizeText.split(" ");
     return (
         <tr className="group cursor-pointer hover:bg-gray-700">
             <td
@@ -68,7 +69,7 @@ const FileListRow = React.memo(function FileListRow({
                     />
                 )}
             </td>
-            <td className="whitespace-nowrap p-1 text-right text-xs text-gray-400 sm:p-2 md:text-sm">
+            <td className="whitespace-nowrap p-1 text-right text-xs text-gray-400/60 sm:p-2 md:text-sm">
                 <span className="sm:hidden">
                     {new Date(file.date * 1000).toLocaleDateString(undefined, {
                         month: "2-digit",
@@ -79,10 +80,19 @@ const FileListRow = React.memo(function FileListRow({
                     {new Date(file.date * 1000).toISOString().slice(0, 10)}
                 </span>
             </td>
-            <td className="hidden whitespace-nowrap p-1 text-right text-xs text-gray-400 sm:table-cell sm:p-2 md:text-sm">
-                {file.sizeText}
+            <td className="hidden whitespace-nowrap p-1 text-right text-xs text-gray-400/80 sm:table-cell sm:p-2 md:text-sm">
+                <span>{sizeValue}</span>
+                {sizeUnit && (
+                    <span
+                        className={`ml-1 text-xs ${sizeUnit.toLowerCase() === "kb" ? "text-green-400/50" : "text-blue-400/70"}`}
+                    >
+                        {sizeUnit.toLowerCase()}
+                    </span>
+                )}
             </td>
-            <td className="whitespace-nowrap p-1 text-right text-xs text-gray-400 sm:p-2 md:text-sm">
+            <td
+                className={`whitespace-nowrap p-1 text-right text-xs sm:p-2 md:text-sm ${file.is_dir ? "text-yellow-500/50" : "text-gray-400/80"}`}
+            >
                 {file.file_type}
             </td>
         </tr>
