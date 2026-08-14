@@ -40,6 +40,25 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
     const [isSearch, setIsSearch] = useState(false);
     const [statusMessage, setStatusMessage] = useState("");
     const [alertStatus, setAlertStatus] = useState(true);
+    const alertSeq = useRef(0);
+    const [, setAlertRenderSeq] = useState(0);
+    const pendingAlertStatus = useRef(null);
+
+    function notify(msg, status = true) {
+        if (pendingAlertStatus.current !== null) {
+            status = pendingAlertStatus.current;
+            pendingAlertStatus.current = null;
+        }
+        alertSeq.current += 1;
+        setAlertRenderSeq(alertSeq.current);
+        setStatusMessage(msg);
+        setAlertStatus(status);
+    }
+
+    function updateAlertStatus(status) {
+        pendingAlertStatus.current = status;
+        setAlertStatus(status);
+    }
     const [filesToShare, setFilesToShare] = useState(new Set());
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [fileToRename, setFileToRename] = useState(new Set());
@@ -212,7 +231,11 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                 path={path}
             />
 
-            <AlertBox message={statusMessage} alertStatus={alertStatus} />
+            <AlertBox
+                key={alertSeq.current}
+                message={statusMessage}
+                alertStatus={alertStatus}
+            />
 
             <div className="rounded-md gap-x-2 flex sm:flex-row flex-col items-start md:mt-5  justify-between ">
                 <Breadcrumb path={path} isAdmin={isAdmin} />
@@ -223,11 +246,11 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                                 isAdmin={isAdmin}
                                 setSelectedFiles={setSelectedFiles}
                                 selectedFiles={selectedFiles}
-                                setStatusMessage={setStatusMessage}
+                                setStatusMessage={notify}
                                 statusMessage={statusMessage}
                                 setSelectAllToggle={setSelectAllToggle}
                                 slug={slug}
-                                setAlertStatus={setAlertStatus}
+                                setAlertStatus={updateAlertStatus}
                             />
                             {isAdmin && (
                                 <>
@@ -257,7 +280,7 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                         {!isSearch && isAdmin && (
                             <UploadMenu
                                 path={path}
-                                setStatusMessage={setStatusMessage}
+                                setStatusMessage={notify}
                                 files={files}
                             />
                         )}
@@ -301,8 +324,8 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                             <TileViewOne
                                 filesCopy={filesCopy}
                                 token={token}
-                                setStatusMessage={setStatusMessage}
-                                setAlertStatus={setAlertStatus}
+                                setStatusMessage={notify}
+                                setAlertStatus={updateAlertStatus}
                                 handleFileClick={handleFileClickM}
                                 isSearch={isSearch}
                                 sortCol={sortCol}
@@ -326,8 +349,8 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                             <ListView
                                 filesCopy={filesCopy}
                                 token={token}
-                                setStatusMessage={setStatusMessage}
-                                setAlertStatus={setAlertStatus}
+                                setStatusMessage={notify}
+                                setAlertStatus={updateAlertStatus}
                                 handleFileClick={handleFileClickM}
                                 isSearch={isSearch}
                                 sortCol={sortCol}
