@@ -35,12 +35,15 @@ const DeleteButton = ({
 
     return (
         <Button
+            size="selected"
             classes={`border border-red-900 text-red-200 hover:bg-red-950 active:bg-gray-900 ${classes}`}
             onClick={confirmAndDelete}
+            aria-label="Delete selected files"
+            title="Delete selected files"
         >
             <Trash2Icon className={`text-red-500 w-4 h-4`} />
             {!classes && (
-                <span className={` hidden sm:inline  mx-1`}>Delete</span>
+                <span className={`hidden lg:inline`}>Delete</span>
             )}
         </Button>
     );

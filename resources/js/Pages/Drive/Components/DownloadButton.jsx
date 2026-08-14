@@ -93,8 +93,11 @@ const DownloadButton = ({
     };
     return (
         <Button
+            size="selected"
             classes={`border border-green-800 text-green-200 hover:bg-green-950 active:bg-gray-900 ${classes} ${isDownloading ? "cursor-not-allowed" : ""}`}
             {...props}
+            aria-label={props["aria-label"] ?? "Download selected files"}
+            title={props.title ?? "Download selected files"}
             disabled={isDownloading}
             onClick={handleDownload}
         >
@@ -104,7 +107,7 @@ const DownloadButton = ({
                 <>
                     <DownloadIcon className="text-center text-green-500  w-4 h-4" />{" "}
                     {!classes && (
-                        <span className="mx-1  hidden sm:inline ">
+                        <span className="hidden lg:inline">
                             Download
                         </span>
                     )}

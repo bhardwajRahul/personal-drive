@@ -93,14 +93,16 @@ const UploadMenu = ({ path, setStatusMessage, files }) => {
 
             <div ref={menuRef} className="relative mr-1 p-0">
                 <button
-                    className="inline-flex gap-x-1 bg-blue-700 text-white font-bold p-1 md:p-2 rounded hover:bg-blue-600 active:bg-blue-800 items-center text-sm md:text-base
-"
+                    type="button"
+                    aria-expanded={isMenuOpen}
+                    aria-label="New"
+                    className="inline-flex justify-center min-h-9 min-w-9 items-center gap-x-1 rounded bg-blue-700 p-1 text-sm font-bold text-white hover:bg-blue-600 active:bg-blue-800"
                     onClick={() => {
                         setIsMenuOpen(!isMenuOpen);
                     }}
                 >
                     <UploadCloudIcon className="w-4 h-4 inline" />
-                    New
+                    <span className="hidden sm:inline">New</span>
                 </button>
                 {isMenuOpen && (
                     <div className="absolute left-0 mt-2 w-32 text-left rounded-md shadow-lg bg-gray-700 ring-1 ring-black ring-opacity-5 z-10">

@@ -14,6 +14,7 @@ const FavoriteButton = ({
 
     return (
         <Button
+            size="selected"
             classes={`border border-blue-700 text-yellow-300 hover:bg-blue-950 active:bg-gray-900 ${isFavorite ? "bg-blue-700" : ""} ${classes}`}
             onClick={handleClick}
             type="button"
@@ -26,7 +27,7 @@ const FavoriteButton = ({
                 aria-hidden="true"
             />
             {!classes && (
-                <span className="mx-1 hidden sm:inline">Star</span>
+                <span className="hidden lg:inline">Star</span>
             )}
         </Button>
     );

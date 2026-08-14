@@ -39,7 +39,7 @@ const TileViewOne = ({
 
     return (
         <div className="w-full flex flex-col flex-wrap ">
-            <div className=" text-center flex items-center gap-x-2 justify-between mb-6 text-xs md:text-sm  text-gray-400 ">
+            <div className="mb-6 flex items-center justify-between gap-x-2 text-center text-xs text-gray-400">
                 <button
                     className="flex items-center rounded-md bg-gray-700 p-1 hover:bg-gray-600 sm:hidden"
                     onClick={() => handleSelectAllToggle(filesCopy)}
@@ -47,7 +47,7 @@ const TileViewOne = ({
                     Select All
                 </button>
                 <div
-                    className="hidden items-center gap-x-2 whitespace-nowrap bg-gray-900/50 p-1 text-center hover:cursor-pointer hover:bg-gray-700 sm:flex md:p-3"
+                    className="hidden items-center gap-x-2 whitespace-nowrap bg-gray-900/50 p-1 text-center hover:cursor-pointer hover:bg-gray-700 sm:flex"
                     onClick={() => handleSelectAllToggle(filesCopy)}
                 >
                     <input

@@ -142,15 +142,13 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                 setSelectAllToggle(false);
             }
 
-            setAlertStatus(true);
-            setStatusMessage(
+            notify(
                 allFavorited
                     ? "Removed from favorites"
                     : "Added to favorites",
             );
         } catch {
-            setAlertStatus(false);
-            setStatusMessage("Could not update favorites");
+            notify("Could not update favorites", false);
         }
     };
 
@@ -361,11 +359,11 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                 alertStatus={alertStatus}
             />
 
-            <div className="rounded-md gap-x-2 flex sm:flex-row flex-col items-start md:mt-5  justify-between ">
+            <div className="flex flex-col items-start gap-x-2 rounded-md md:mt-5 lg:flex-row md:items-center">
                 <Breadcrumb path={path} isAdmin={isAdmin} />
-                <div className="flex w-full justify-between sm:justify-end items-center ">
+                <div className="flex w-full min-w-0 items-center justify-between gap-x-1 lg:w-auto lg:shrink-0 lg:justify-end">
                     {selectedFiles.size > 0 && (
-                        <div className="flex min-h-11 gap-x-1">
+                        <div className="flex min-h-5 shrink-0 gap-x-1">
                             <DownloadButton
                                 isAdmin={isAdmin}
                                 setSelectedFiles={setSelectedFiles}
@@ -406,7 +404,7 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                             onPaste={handlePasteFiles} // Example paste handler
                         />
                     )}
-                    <div className="w-full sm:ml-1 sm:w-auto flex min-h-11 items-center justify-end">
+                    <div className="flex min-h-5 shrink-0 items-center justify-end">
                         {isAdmin && (
                             <FavoritesMenu
                                 favorites={favoriteItems}
@@ -414,9 +412,9 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                                 onRemoveFavorite={handleRemoveFavorite}
                                 setIsShareModalOpen={setIsShareModalOpen}
                                 setFilesToShare={setFilesToShare}
-                                setStatusMessage={setStatusMessage}
+                                setStatusMessage={notify}
                                 statusMessage={statusMessage}
-                                setAlertStatus={setAlertStatus}
+                                setAlertStatus={updateAlertStatus}
                             />
                         )}
                         {!isSearch && isAdmin && (
@@ -428,6 +426,7 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                         )}
                         <div className="flex">
                             <button
+                                aria-label="Tile view"
                                 className={`p-2 mx-1 rounded-md ${currentViewMode === "TileViewOne" ? "bg-gray-900 border border-blue-300" : "bg-gray-600"} hover:bg-gray-500 active:bg-gray-800`}
                                 onClick={() =>
                                     handleViewModeClick("TileViewOne")
@@ -436,6 +435,7 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                                 <Grid className="w-5 h-5" />
                             </button>
                             <button
+                                aria-label="List view"
                                 className={`p-2 ml-1 text-white rounded-md ${currentViewMode === "ListView" ? "bg-gray-900 border border-blue-300" : "bg-gray-600"} hover:bg-gray-500 active:bg-gray-800 text-ellipsis
 `}
                                 onClick={() => handleViewModeClick("ListView")}

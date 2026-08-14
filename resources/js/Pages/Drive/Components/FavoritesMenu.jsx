@@ -52,12 +52,12 @@ const FavoritesMenu = ({
                 type="button"
                 aria-expanded={isOpen}
                 aria-controls="favorites-list"
-                className="inline-flex items-center gap-x-1 rounded bg-blue-700 p-1 text-sm font-bold text-white hover:bg-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800 active:bg-blue-800 md:p-2 md:text-base"
+                className="inline-flex min-h-9 min-w-9 justify-center items-center gap-x-1 rounded bg-blue-700 p-1 text-sm font-bold text-white hover:bg-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800 active:bg-blue-800"
                 onClick={() => setIsOpen((open) => !open)}
                 aria-label="Favorites"
             >
                 <Star className="h-4 w-4 fill-current text-yellow-300" aria-hidden="true" />
-                <span>Fav</span>
+                <span className="hidden md:inline">Fav</span>
             </button>
 
             {isOpen && (

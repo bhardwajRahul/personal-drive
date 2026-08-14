@@ -1,7 +1,9 @@
-const Button = ({ onClick, classes, children, ...props }) => {
+const Button = ({ onClick, classes, size = "default", children, ...props }) => {
+    const sizeClasses = size === "selected" ? "text-xs xl:text-sm" : "text-sm";
+
     return (
         <button
-            className={`p-1 md:p-2 text-xs md:text-base rounded-md flex items-center ${classes}`}
+            className={`min-h-7 min-w-9 rounded-md px-2 py-1 inline-flex items-center justify-center gap-1 ${sizeClasses} ${classes}`}
             onClick={onClick}
             {...props}
         >
