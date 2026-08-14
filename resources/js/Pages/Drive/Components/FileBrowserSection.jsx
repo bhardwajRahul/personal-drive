@@ -119,7 +119,10 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug }) => {
 
     // Sorting
     const [filesCopy, setFilesCopy] = useState([...files]);
-    let sortDetails = useRef({ key: "filename", order: "desc" });
+    const sortDetails = JSON.parse(localStorage.getItem("sortDetails")) || {
+        key: "filename",
+        order: "desc",
+    };
 
     function sortArrayByKey(arr, key, direction) {
         return [...arr].sort((a, b) => {
@@ -150,6 +153,7 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug }) => {
         let sortedFiles = sortArrayByKey(files, key, sortDirectionToSet);
         sortDetails.key = key;
         sortDetails.order = sortDirectionToSet === "desc" ? "asc" : "desc";
+        localStorage.setItem("sortDetails", JSON.stringify(sortDetails));
         return sortedFiles;
     }
 
@@ -169,8 +173,8 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug }) => {
     useEffect(() => {
         // initial sort
         let previewAbleFilesPotential;
-        if (sortDetails.current.key) {
-            let sortedFiles = sortCol(files, sortDetails.current.key, false);
+        if (sortDetails.key) {
+            let sortedFiles = sortCol(files, sortDetails.key, false);
             setFilesCopy([...sortedFiles]);
             previewAbleFilesPotential = getPrevieAbleFiles(sortedFiles);
         } else {
