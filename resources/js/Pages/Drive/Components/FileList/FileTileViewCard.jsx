@@ -33,6 +33,7 @@ const FileTileViewCard = React.memo(function FileTileViewCard({
             className={`group relative overflow-hidden rounded-lg border border-gray-800 bg-gray-900/50 px-2 md:px-3 p-1 md:p-3 transition-all duration-200 hover:border-gray-700 hover:shadow-lg min-h-[150px] md:min-h-[270px] flex flex-col h-full gap-2 pb-1 ${
                 isSelected ? "bg-gray-950" : ""
             } `}
+            data-file-id={file.is_dir ? undefined : file.id}
         >
             {/* Wrapper for Top Content (Text + Icon) */}
             <div className="flex flex-col gap-1 flex-1">

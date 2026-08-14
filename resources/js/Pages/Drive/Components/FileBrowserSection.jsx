@@ -7,7 +7,7 @@ import {
     useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { Grid, List, StepBackIcon } from "lucide-react";
+import { Grid, List, Star, StepBackIcon } from "lucide-react";
 import MediaViewer from "./FileList/MediaViewer.jsx";
 import TileViewOne from "./FileList/TileViewOne.jsx";
 import ListView from "./FileList/ListView.jsx";
@@ -18,6 +18,7 @@ import ShareModal from "@/Pages/Drive/Components/Shares/ShareModal.jsx";
 import DownloadButton from "@/Pages/Drive/Components/DownloadButton.jsx";
 import ShowShareModalButton from "@/Pages/Drive/Components/Shares/ShowShareModalButton.jsx";
 import DeleteButton from "@/Pages/Drive/Components/DeleteButton.jsx";
+import FavoritesMenu from "@/Pages/Drive/Components/FavoritesMenu.jsx";
 import UploadMenu from "@/Pages/Drive/Components/UploadMenu.jsx";
 import { router, usePage } from "@inertiajs/react";
 import RenameModal from "@/Pages/Drive/Components/FileList/RenameModal.jsx";
@@ -25,7 +26,7 @@ import CutButton from "./CutButton.jsx";
 import PasteButton from "./PasteButton.jsx";
 import { CutFilesContext } from "../../../Contexts/CutFilesContext.jsx";
 
-const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExists }) => {
+const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExists, favorites = [] }) => {
     const {
         selectAllToggle,
         handleSelectAllToggle,
@@ -63,6 +64,8 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [fileToRename, setFileToRename] = useState(new Set());
     const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+    const [favoriteItems, setFavoriteItems] = useState(favorites);
+    const [isAddingFavorites, setIsAddingFavorites] = useState(false);
 
     const { cutFiles, setCutFiles, cutPath, setCutPath } =
         useContext(CutFilesContext);
@@ -93,6 +96,90 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                 },
             },
         );
+    };
+
+    const handleAddFavorites = async () => {
+        if (isAddingFavorites) {
+            return;
+        }
+
+        const favoriteFileIds = new Set(
+            favoriteItems.map((favorite) => favorite.local_file_id),
+        );
+        const localFileIds = Array.from(selectedFiles).filter(
+            (fileId) => !favoriteFileIds.has(fileId),
+        );
+
+        if (localFileIds.length === 0) {
+            return;
+        }
+
+        setIsAddingFavorites(true);
+
+        try {
+            const response = await axios.post("/favorites", {
+                local_file_ids: localFileIds,
+            });
+
+            setFavoriteItems(response.data.favorites);
+            setStatusMessage("");
+        } catch {
+            setAlertStatus(false);
+            setStatusMessage("Could not add favorites");
+        } finally {
+            setIsAddingFavorites(false);
+        }
+    };
+
+    const handleRemoveFavorite = async (favoriteId) => {
+        const originalIndex = favoriteItems.findIndex(
+            (favorite) => favorite.id === favoriteId,
+        );
+        const removedFavorite = favoriteItems[originalIndex];
+
+        if (!removedFavorite) {
+            return;
+        }
+
+        setFavoriteItems((currentFavorites) =>
+            currentFavorites.filter((favorite) => favorite.id !== favoriteId),
+        );
+
+        try {
+            await axios.delete(`/favorites/${favoriteId}`);
+        } catch {
+            setFavoriteItems((currentFavorites) => {
+                if (
+                    currentFavorites.some(
+                        (favorite) => favorite.id === removedFavorite.id,
+                    )
+                ) {
+                    return currentFavorites;
+                }
+
+                return [
+                    ...currentFavorites.slice(0, originalIndex),
+                    removedFavorite,
+                    ...currentFavorites.slice(originalIndex),
+                ];
+            });
+            setAlertStatus(false);
+            setStatusMessage("Could not remove favorite");
+        }
+    };
+
+    const handleOpenFavorite = (localFile) => {
+        const favoritePath = localFile.is_dir
+            ? [localFile.public_path, localFile.filename]
+                  .filter(Boolean)
+                  .join("/")
+            : localFile.public_path;
+
+        if (!localFile.is_dir) {
+            sessionStorage.setItem("favorite-file-id", localFile.id);
+        }
+
+        router.visit(favoritePath ? `/drive/${favoritePath}` : "/drive");
     };
 
     const navigate = useNavigate();
@@ -212,6 +299,42 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
         setFilesToShare(selectedFiles);
     }, [selectedFiles]);
 
+    useEffect(() => {
+        setFavoriteItems(favorites);
+    }, [favorites]);
+
+    useEffect(() => {
+        const favoriteFileId = sessionStorage.getItem("favorite-file-id");
+
+        if (!favoriteFileId) {
+            return;
+        }
+
+        let removeHighlightTimer;
+        const findFileTimer = window.setTimeout(() => {
+            const favoriteFile = document.querySelector(
+                `[data-file-id="${favoriteFileId}"]`,
+            );
+
+            sessionStorage.removeItem("favorite-file-id");
+
+            if (!favoriteFile) {
+                return;
+            }
+
+            favoriteFile.scrollIntoView({ behavior: "smooth", block: "center" });
+            favoriteFile.classList.add("ring-2", "ring-yellow-400");
+            removeHighlightTimer = window.setTimeout(() => {
+                favoriteFile.classList.remove("ring-2", "ring-yellow-400");
+            }, 1500);
+        }, 0);
+
+        return () => {
+            window.clearTimeout(findFileTimer);
+            window.clearTimeout(removeHighlightTimer);
+        };
+    }, [filesCopy]);
+
     return (
         <div className="min-h-screen rounded-md">
             <ShareModal
@@ -241,7 +364,7 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                 <Breadcrumb path={path} isAdmin={isAdmin} />
                 <div className="flex w-full justify-between sm:justify-end items-center ">
                     {selectedFiles.size > 0 && (
-                        <div className="flex gap-x-1 h-8 md:h-10 ">
+                        <div className="flex min-h-11 gap-x-1">
                             <DownloadButton
                                 isAdmin={isAdmin}
                                 setSelectedFiles={setSelectedFiles}
@@ -252,6 +375,20 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                                 slug={slug}
                                 setAlertStatus={updateAlertStatus}
                             />
+                            {isAdmin && (
+                                <button
+                                    type="button"
+                                    className="flex h-11 w-11 items-center justify-center rounded-md border border-yellow-600 text-yellow-300 hover:bg-yellow-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800 active:bg-yellow-900 disabled:cursor-not-allowed disabled:opacity-50"
+                                    onClick={handleAddFavorites}
+                                    disabled={isAddingFavorites}
+                                    title="Add selected items to favorites"
+                                >
+                                    <Star className="h-5 w-5" aria-hidden="true" />
+                                    <span className="sr-only">
+                                        Add selected items to favorites
+                                    </span>
+                                </button>
+                            )}
                             {isAdmin && (
                                 <>
                                     <ShowShareModalButton
@@ -276,7 +413,19 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                             onPaste={handlePasteFiles} // Example paste handler
                         />
                     )}
-                    <div className=" w-full sm:w-auto sm:ml-1 justify-end items-center flex h-10">
+                    <div className="w-full sm:ml-1 sm:w-auto flex min-h-11 items-center justify-end">
+                        {isAdmin && (
+                            <FavoritesMenu
+                                favorites={favoriteItems}
+                                onOpenFavorite={handleOpenFavorite}
+                                onRemoveFavorite={handleRemoveFavorite}
+                                setIsShareModalOpen={setIsShareModalOpen}
+                                setFilesToShare={setFilesToShare}
+                                setStatusMessage={setStatusMessage}
+                                statusMessage={statusMessage}
+                                setAlertStatus={setAlertStatus}
+                            />
+                        )}
                         {!isSearch && isAdmin && (
                             <UploadMenu
                                 path={path}

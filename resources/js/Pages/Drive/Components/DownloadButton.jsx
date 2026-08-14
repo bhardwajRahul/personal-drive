@@ -12,6 +12,7 @@ const DownloadButton = ({
     setSelectAllToggle,
     slug,
     setAlertStatus,
+    ...props
 }) => {
     function generateAndClickDownloadLink(response) {
         // Create blob link to download
@@ -92,6 +93,7 @@ const DownloadButton = ({
     return (
         <Button
             classes={`border border-green-800 text-green-200 hover:bg-green-950 active:bg-gray-900 ${classes} ${statusMessage ? "cursor-not-allowed" : ""}`}
+            {...props}
             disabled={statusMessage}
             onClick={handleDownload}
         >

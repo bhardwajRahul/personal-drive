@@ -6,6 +6,7 @@ const ShowShareModalButton = ({
     classes = "",
     setFilesToShare,
     filesToShare,
+    ...props
 }) => {
     function handleShareButton(e) {
         e.stopPropagation();
@@ -18,6 +19,7 @@ const ShowShareModalButton = ({
     return (
         <Button
             classes={`border border-blue-700 text-blue-200 hover:bg-blue-950 active:bg-gray-900 ${classes}`}
+            {...props}
             onClick={(e) => handleShareButton(e)}
         >
             <Share2Icon className={`text-blue-500  h-4 w-4`} />

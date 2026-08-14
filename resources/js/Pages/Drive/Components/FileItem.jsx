@@ -23,6 +23,7 @@ const FileItem = React.memo(function FileItem({
     return (
         <div
             className="flex min-w-0 items-center justify-between md:hover:bg-gray-900"
+            data-file-id={file.id}
             onClick={() => handleFileClick(file)}
         >
             <div className="flex min-w-0 flex-1 items-center p-1 sm:p-2">
