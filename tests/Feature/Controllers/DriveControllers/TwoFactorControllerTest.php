@@ -3,7 +3,9 @@
 namespace Tests\Feature\Controllers\DriveControllers;
 
 use App\Http\Middleware\HandleGuestShareMiddleware;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Testing\TestResponse;
 use Mockery;
 use PragmaRX\Google2FAQRCode\Google2FA;
@@ -122,6 +124,7 @@ class TwoFactorControllerTest extends BaseFeatureTest
 
         $response->assertRedirect(route('drive'));
         $this->twoFactorGenMockStub();
+        $this->withServerVariables(['REMOTE_ADDR' => '10.10.10.10']);
         $response = $this->post(
             route('admin-config.two-factor-code-disable'),
             [
@@ -160,5 +163,152 @@ class TwoFactorControllerTest extends BaseFeatureTest
         );
         $response->assertRedirect(route('drive'));
 
+    }
+
+    public function test_four_wrong_codes_then_correct_code_still_succeeds()
+    {
+        $this->twoFactorGenMockStub();
+
+        $google2FA = $this->mockTwoFactor();
+        $this->app->instance(Google2FA::class, $google2FA);
+        $this->postEnableTwoFactor('123456');
+
+        $user = User::first();
+        RateLimiter::clear('two-factor:' . $user->id);
+        Auth::logout();
+        $this->withSession(['twoFactorUserId' => $user->id]);
+
+        for ($i = 0; $i < 4; $i++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.' . $i]);
+            $response = $this->post(
+                route('login.two-factor-check'),
+                ['code' => '000000']
+            );
+            $response->assertSessionHas('status', false);
+            $response->assertSessionHas('message', 'Incorrect OTP. Please try again');
+        }
+
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.99']);
+        $response = $this->post(
+            route('login.two-factor-check'),
+            ['code' => '123456']
+        );
+        $response->assertRedirect(route('drive'));
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_locked_user_cannot_authenticate_with_correct_code(): void
+    {
+        $this->twoFactorGenMockStub();
+        $this->app->instance(Google2FA::class, $this->mockTwoFactor());
+        $this->postEnableTwoFactor('123456');
+
+        $user = User::first();
+        RateLimiter::clear('two-factor:' . $user->id);
+        Auth::logout();
+        $this->withSession(['twoFactorUserId' => $user->id]);
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '10.3.0.' . $i]);
+            $this->post(route('login.two-factor-check'), ['code' => '000000']);
+        }
+
+        $this->withServerVariables(['REMOTE_ADDR' => '10.3.0.99']);
+        $response = $this->post(route('login.two-factor-check'), ['code' => '123456']);
+
+        $response->assertSessionHas('status', false);
+        $response->assertSessionHas(
+            'message',
+            fn($message) => str_contains($message, 'Too many attempts')
+        );
+        $this->assertGuest();
+    }
+
+    public function test_sixth_wrong_code_within_window_returns_throttled_error()
+    {
+        $this->twoFactorGenMockStub();
+
+        $google2FA = $this->mockTwoFactor();
+        $this->app->instance(Google2FA::class, $google2FA);
+        $this->postEnableTwoFactor('123456');
+
+        $user = User::first();
+        $this->withSession(['twoFactorUserId' => $user->id]);
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '10.1.0.' . $i]);
+            $response = $this->post(
+                route('login.two-factor-check'),
+                ['code' => '000000']
+            );
+            $response->assertSessionHas('status', false);
+            $response->assertSessionHas('message', 'Incorrect OTP. Please try again');
+        }
+
+        $this->withServerVariables(['REMOTE_ADDR' => '10.1.0.99']);
+        $response = $this->post(
+            route('login.two-factor-check'),
+            ['code' => '000000']
+        );
+        $response->assertSessionHas('status', false);
+        $response->assertSessionHas(
+            'message',
+            fn($message) => str_contains($message, 'Too many attempts')
+        );
+    }
+
+    public function test_another_users_failed_attempts_do_not_lock_out_this_user()
+    {
+        $google2FA = $this->mockTwoFactor();
+        $this->app->instance(Google2FA::class, $google2FA);
+
+        $firstUser = User::first();
+        $secondUser = User::create(
+            [
+            'username' => 'seconduser',
+            'is_admin' => 0,
+            'password' => 'password',
+            ]
+        );
+
+        foreach ([$firstUser, $secondUser] as $user) {
+            $user->setTwoFactorSecret('secret');
+            $user->setTwoFactorStatus(true);
+        }
+
+        // burn all five wrong attempts for the first user
+        for ($i = 0; $i < 5; $i++) {
+            $this->withSession(['twoFactorUserId' => $firstUser->id]);
+            $this->withServerVariables(['REMOTE_ADDR' => '10.2.0.' . $i]);
+            $response = $this->post(
+                route('login.two-factor-check'),
+                ['code' => '000000']
+            );
+            $response->assertSessionHas('status', false);
+            $response->assertSessionHas('message', 'Incorrect OTP. Please try again');
+        }
+
+        // the second user's correct code is not affected (separate keys)
+        $this->withSession(['twoFactorUserId' => $secondUser->id]);
+        $this->withServerVariables(['REMOTE_ADDR' => '10.2.0.99']);
+        $response = $this->post(
+            route('login.two-factor-check'),
+            ['code' => '123456']
+        );
+        $response->assertRedirect(route('drive'));
+        $this->assertAuthenticatedAs($secondUser);
+    }
+
+    public function test_two_factor_index_page_is_not_throttled()
+    {
+        $user = User::first();
+        $this->withSession(['twoFactorUserId' => $user->id]);
+
+        // The 2FA *page* is a plain GET render; only the OTP-check POST is
+        // throttled. Refresh the page repeatedly without being locked out.
+        for ($i = 0; $i < 8; $i++) {
+            $response = $this->get(route('login.two-factor-index'));
+            $response->assertOk();
+        }
     }
 }

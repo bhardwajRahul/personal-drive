@@ -11,6 +11,7 @@ use App\Traits\FlashMessages;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Inertia\Inertia;
 use PragmaRX\Google2FA\Google2FA;
 
@@ -37,16 +38,27 @@ class TwoFactorController extends Controller
         $userId = $request->session()->get('twoFactorUserId');
         $user = User::findOrFail($userId);
 
+        $throttleKey = 'two-factor:' . $userId;
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+
+            return $this->error('Too many attempts. Please try again in ' . $seconds . ' seconds.');
+        }
+
         $twoFactorCode = $request->validated('code');
         $twoFactorSecret = $user->getTwoFactorSecret();
         $isVerified = $this->twoFactorService->twoFactorCodeCheck($twoFactorCode, $twoFactorSecret);
 
         if ($isVerified) {
+            RateLimiter::clear($throttleKey);
             $request->session()->forget('twoFactorUserId');
             Auth::login($user);
             $request->session()->regenerate();
             return redirect()->intended(route('drive', absolute: false));
         }
+
+        RateLimiter::hit($throttleKey);
 
         return $this->error('Incorrect OTP. Please try again');
     }

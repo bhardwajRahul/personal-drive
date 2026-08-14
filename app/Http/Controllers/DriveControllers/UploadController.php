@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\DriveRequests\CreateItemRequest;
 use App\Http\Requests\DriveRequests\ReplaceAbortRequest;
 use App\Http\Requests\DriveRequests\UploadRequest;
+use App\Models\Setting;
 use App\Services\LocalFileStatsService;
 use App\Services\PathService;
 use App\Services\FileOperationsService;
@@ -130,7 +131,15 @@ class UploadController extends Controller
     private function uploadToDir(string $destinationDir, mixed $file, string $publicPath): int
     {
         $successfulUploads = 0;
+        // $destinationDir is absolute: never write through a symlink that
+        // escapes the storage root.
+        if (!$this->pathService->isWithinStorageRoot($destinationDir)) {
+            throw UploadFileException::pathOutsideStorageRoot();
+        }
         if (!$this->fileOperationsService->directoryExists($publicPath)) {
+            if (!$this->pathService->isWithinStorageRoot(Setting::getStoragePath() . DS . $publicPath)) {
+                throw UploadFileException::pathOutsideStorageRoot();
+            }
             $this->fileOperationsService->makeFolder($publicPath);
         }
         $sanitizeFileName = $this->pathService->sanitizeFileName($file->getClientOriginalName());

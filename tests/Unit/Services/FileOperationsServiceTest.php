@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Services;
 
+use App\Exceptions\PersonalDriveExceptions\FileMoveException;
 use App\Exceptions\PersonalDriveExceptions\UploadFileException;
 use App\Models\Setting;
 use App\Services\FileOperationsService;
@@ -120,6 +121,197 @@ class FileOperationsServiceTest extends TestCase
         }
     }
 
+    public function testMoveWithinRealStorageRootStillWorks(): void
+    {
+        $root = sys_get_temp_dir() . DS . 'pd_root_' . uniqid();
+        mkdir($root . DS . 'sub', 0755, true);
+
+        try {
+            file_put_contents($root . DS . 'src.txt', 'payload');
+            $service = $this->makeServiceWithStoragePath($root);
+
+            $service->move('src.txt', 'sub/dest.txt');
+
+            $this->assertFileExists($root . DS . 'sub' . DS . 'dest.txt');
+            $this->assertSame('payload', file_get_contents($root . DS . 'sub' . DS . 'dest.txt'));
+            $this->assertFileDoesNotExist($root . DS . 'src.txt');
+        } finally {
+            $this->removeDirRecursively($root);
+        }
+    }
+
+    public function testMoveIntoSymlinkEscapingStorageRootFailsAndWritesNothingOutside(): void
+    {
+        if (!function_exists('symlink')) {
+            $this->markTestSkipped('symlink() is not available on this host');
+        }
+        [$root, $outside] = $this->makeRootWithEscapeSymlink();
+
+        try {
+            file_put_contents($root . DS . 'src.txt', 'payload');
+            $service = $this->makeServiceWithStoragePath($root);
+
+            try {
+                $service->move('src.txt', 'escape/evil.txt');
+                $this->fail('Expected FileMoveException to be thrown');
+            } catch (FileMoveException $e) {
+                $this->assertStringContainsString('invalid', $e->getMessage());
+            }
+
+            // Nothing may be written outside the root, and the source stays put.
+            $this->assertFileDoesNotExist($outside . DS . 'evil.txt');
+            $this->assertFileExists($root . DS . 'src.txt');
+        } finally {
+            $this->removeDirRecursively($root);
+            $this->removeDirRecursively($outside);
+        }
+    }
+
+    public function testMoveWithSourceTraversingSymlinkEscapingStorageRootFails(): void
+    {
+        if (!function_exists('symlink')) {
+            $this->markTestSkipped('symlink() is not available on this host');
+        }
+        [$root, $outside] = $this->makeRootWithEscapeSymlink();
+
+        try {
+            file_put_contents($outside . DS . 'outside.txt', 'secret');
+            $service = $this->makeServiceWithStoragePath($root);
+
+            try {
+                $service->move('escape/outside.txt', 'dest.txt');
+                $this->fail('Expected FileMoveException to be thrown');
+            } catch (FileMoveException $e) {
+                $this->assertTrue(true);
+            }
+
+            // The outside file must remain untouched and nothing lands in the root.
+            $this->assertFileExists($outside . DS . 'outside.txt');
+            $this->assertFileDoesNotExist($root . DS . 'dest.txt');
+        } finally {
+            $this->removeDirRecursively($root);
+            $this->removeDirRecursively($outside);
+        }
+    }
+
+    public function testMakeFolderUnderSymlinkEscapingStorageRootFails(): void
+    {
+        if (!function_exists('symlink')) {
+            $this->markTestSkipped('symlink() is not available on this host');
+        }
+        [$root, $outside] = $this->makeRootWithEscapeSymlink();
+
+        try {
+            $service = $this->makeServiceWithStoragePath($root);
+
+            try {
+                $service->makeFolder('escape/evil');
+                $this->fail('Expected UploadFileException to be thrown');
+            } catch (UploadFileException $e) {
+                $this->assertStringContainsString('outside the storage root', $e->getMessage());
+            }
+
+            $this->assertDirectoryDoesNotExist($outside . DS . 'evil');
+        } finally {
+            $this->removeDirRecursively($root);
+            $this->removeDirRecursively($outside);
+        }
+    }
+
+    public function testMakeFileUnderSymlinkEscapingStorageRootFails(): void
+    {
+        if (!function_exists('symlink')) {
+            $this->markTestSkipped('symlink() is not available on this host');
+        }
+        [$root, $outside] = $this->makeRootWithEscapeSymlink();
+
+        try {
+            $service = $this->makeServiceWithStoragePath($root);
+
+            try {
+                $service->makeFile('escape/evil.txt');
+                $this->fail('Expected UploadFileException to be thrown');
+            } catch (UploadFileException $e) {
+                $this->assertStringContainsString('outside the storage root', $e->getMessage());
+            }
+
+            $this->assertFileDoesNotExist($outside . DS . 'evil.txt');
+        } finally {
+            $this->removeDirRecursively($root);
+            $this->removeDirRecursively($outside);
+        }
+    }
+
+    public function testMakeFolderAtNormalPathStillWorksWithRealFilesystem(): void
+    {
+        $root = sys_get_temp_dir() . DS . 'pd_root_' . uniqid();
+        mkdir($root, 0755, true);
+
+        try {
+            $service = $this->makeServiceWithStoragePath($root);
+
+            $this->assertTrue($service->makeFolder('normal'));
+            $this->assertDirectoryExists($root . DS . 'normal');
+        } finally {
+            $this->removeDirRecursively($root);
+        }
+    }
+
+    /**
+     * Bootstraps the app with migrations and points the storage_path setting
+     * at $storageRoot, then returns a service backed by a real local filesystem.
+     */
+    private function makeServiceWithStoragePath(string $storageRoot): FileOperationsService
+    {
+        $this->createServiceWithNoFilesystem();
+        Setting::where('key', Setting::$storagePath)
+            ->update(['value' => $storageRoot]);
+
+        return new FileOperationsService();
+    }
+
+    /**
+     * Creates a storage root containing a symlink ("escape") that points at a
+     * directory outside the root. Returns [root, outside]. Skips the test when
+     * symlinks cannot be created on this host.
+     */
+    private function makeRootWithEscapeSymlink(): array
+    {
+        $root = sys_get_temp_dir() . DS . 'pd_root_' . uniqid();
+        $outside = sys_get_temp_dir() . DS . 'pd_outside_' . uniqid();
+        mkdir($root, 0755, true);
+        mkdir($outside, 0755, true);
+
+        if (!@symlink($outside, $root . DS . 'escape')) {
+            $this->removeDirRecursively($root);
+            $this->removeDirRecursively($outside);
+            $this->markTestSkipped(
+                'Cannot create symlink on this host (missing privileges or unsupported filesystem)'
+            );
+        }
+
+        return [$root, $outside];
+    }
+
+    private function removeDirRecursively(string $dir): void
+    {
+        if (!file_exists($dir) && !is_link($dir)) {
+            return;
+        }
+        foreach (scandir($dir) ?: [] as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $path = $dir . DIRECTORY_SEPARATOR . $item;
+            if (is_link($path) || is_file($path)) {
+                @unlink($path);
+            } elseif (is_dir($path)) {
+                $this->removeDirRecursively($path);
+            }
+        }
+        @rmdir($dir);
+    }
+
     /**
      * Creates a FileOperationsService where makeFileSystem() will return false.
      * Bootstraps a fresh Laravel app with in-memory SQLite and runs migrations.
@@ -137,6 +329,8 @@ class FileOperationsServiceTest extends TestCase
 
     protected function setUp(): void
     {
+        parent::setUp();
+
         $this->fs = Mockery::mock(Filesystem::class);
 
         $pathService = Mockery::mock(PathService::class);

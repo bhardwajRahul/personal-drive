@@ -38,7 +38,7 @@ class FileFetchController extends Controller
     /**
      * @throws FetchFileException
      */
-    public function index(FetchFileRequest $request): void
+    public function index(FetchFileRequest $request)
     {
         $fileId = $request->validated('id');
 
@@ -48,7 +48,7 @@ class FileFetchController extends Controller
         $file = $this->handleHashRequest($request);
         $filePrivatePathName = $file->getPrivatePathNameForFile();
         if ($file->file_type === 'text') {
-            response()->stream(
+            return response()->stream(
                 function () use ($filePrivatePathName) {
                     readfile($filePrivatePathName);
                 },
@@ -57,11 +57,41 @@ class FileFetchController extends Controller
                     'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
                     'Pragma' => 'no-cache',
                     'Content-Type' => 'text/plain',
+                    'X-Content-Type-Options' => 'nosniff',
                 ]
-            )->send();
-        } else {
-            $this->streamFile($filePrivatePathName);
+            );
         }
+
+        $mimeType = mime_content_type($filePrivatePathName) ?: '';
+        $streamInline = in_array($file->file_type, ['video', 'audio', 'pdf'], true)
+            || ($file->file_type === 'image' && $mimeType !== 'image/svg+xml');
+
+        $headers = ['X-Content-Type-Options' => 'nosniff'];
+        if (! $streamInline) {
+            $headers['Content-Disposition'] = 'attachment; filename="'
+                . $this->sanitizeFilenameForHeader($file->filename)
+                . '"';
+        }
+
+        foreach ($headers as $name => $value) {
+            header($name . ': ' . $value);
+        }
+
+        $this->streamFile($filePrivatePathName);
+
+        // Unreachable in production: VideoStreamer::streamFile() exits after
+        // streaming. Only reached when streamFile() is stubbed in tests, where
+        // it exposes the headers that were applied before streaming.
+        return response()->make('', 200, $headers);
+    }
+
+    /**
+     * Strip characters that could break the Content-Disposition header
+     * (quote + CR/LF header injection) from the outgoing filename.
+     */
+    private function sanitizeFilenameForHeader(string $filename): string
+    {
+        return str_replace(['"', "\r", "\n"], '', $filename);
     }
 
     /**

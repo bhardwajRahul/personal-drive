@@ -73,27 +73,27 @@ class FileDeleteServiceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testIsDirSubDirOfStorage()
+    public function testIsPathWithinStorage()
     {
         $this->assertTrue(
-            $this->fileDeleteService->isDirSubDirOfStorage(
+            $this->fileDeleteService->isPathWithinStorage(
                 $this->tempDir,
                 sys_get_temp_dir()
             )
         );
     }
 
-    public function testIsDirSubDirOfStorageFalseWhenNotUnderStorage()
+    public function testIsPathWithinStorageFalseWhenNotUnderStorage()
     {
         $this->assertFalse(
-            $this->fileDeleteService->isDirSubDirOfStorage(
+            $this->fileDeleteService->isPathWithinStorage(
                 sys_get_temp_dir(),
                 $this->tempDir
             )
         );
     }
 
-    public function testIsDirSubDirOfStorageRejectsPrefixSibling()
+    public function testIsPathWithinStorageRejectsPrefixSibling()
     {
         $suffix = bin2hex(random_bytes(4));
         $storage = sys_get_temp_dir() . DS . 'personal-drive-' . $suffix;
@@ -103,7 +103,7 @@ class FileDeleteServiceTest extends TestCase
 
         try {
             $this->assertFalse(
-                $this->fileDeleteService->isDirSubDirOfStorage($prefixSibling, $storage)
+                $this->fileDeleteService->isPathWithinStorage($prefixSibling, $storage)
             );
         } finally {
             rmdir($prefixSibling);
@@ -111,7 +111,7 @@ class FileDeleteServiceTest extends TestCase
         }
     }
 
-    public function testIsDirSubDirOfStorageRejectsCanonicalPathOutsideStorage()
+    public function testIsPathWithinStorageRejectsCanonicalPathOutsideStorage()
     {
         $base = sys_get_temp_dir() . DS . 'personal-drive-' . bin2hex(random_bytes(4));
         $storage = $base . DS . 'storage';
@@ -122,7 +122,7 @@ class FileDeleteServiceTest extends TestCase
 
         try {
             $this->assertFalse(
-                $this->fileDeleteService->isDirSubDirOfStorage(
+                $this->fileDeleteService->isPathWithinStorage(
                     $storage . DS . '..' . DS . 'outside',
                     $storage
                 )
@@ -166,9 +166,92 @@ class FileDeleteServiceTest extends TestCase
         $this->assertFileExists($this->tempDir . $this->tempFile);
 
         $builder = LocalFile::whereIn('id', [$dir->id]);
-        $this->fileDeleteService->deleteFiles($builder, sys_get_temp_dir());
+        $filesDeleted = $this->fileDeleteService->deleteFiles($builder, sys_get_temp_dir());
 
-        $this->assertDirectoryDoesNotExist($dir);
+        $this->assertSame(1, $filesDeleted);
+        $this->assertDirectoryDoesNotExist($this->tempDir . $tempSubDir);
+    }
+
+    public function testDeleteFilesDoesNotDeleteFileOutsideStorage()
+    {
+        $outsideDir = sys_get_temp_dir() . DS . 'pd-outside-' . bin2hex(random_bytes(4));
+        @mkdir($outsideDir);
+        $outsideFile = 'outside.txt';
+        file_put_contents($outsideDir . DS . $outsideFile, 'content');
+
+        $file = LocalFile::factory()->create(
+            [
+            'private_path' => $outsideDir . DS,
+            'filename' => $outsideFile,
+            'is_dir' => 0,
+            ]
+        );
+
+        $builder = LocalFile::whereIn('id', [$file->id]);
+        $filesDeleted = $this->fileDeleteService->deleteFiles($builder, $this->tempDir);
+
+        $this->assertSame(0, $filesDeleted);
+        $this->assertFileExists($outsideDir . DS . $outsideFile);
+
+        @unlink($outsideDir . DS . $outsideFile);
+        @rmdir($outsideDir);
+    }
+
+    public function testDeleteFilesDoesNotDeleteSymlinkEscapingStorage()
+    {
+        $storageRoot = sys_get_temp_dir() . DS . 'pd-storage-' . bin2hex(random_bytes(4));
+        @mkdir($storageRoot);
+
+        $outsideDir = sys_get_temp_dir() . DS . 'pd-symlink-target-' . bin2hex(random_bytes(4));
+        @mkdir($outsideDir);
+        $targetFile = 'target.txt';
+        file_put_contents($outsideDir . DS . $targetFile, 'content');
+
+        $symlinkName = 'escape.txt';
+        $symlinkPath = $storageRoot . DS . $symlinkName;
+        @symlink($outsideDir . DS . $targetFile, $symlinkPath);
+
+        $file = LocalFile::factory()->create(
+            [
+            'private_path' => $storageRoot . DS,
+            'filename' => $symlinkName,
+            'is_dir' => 0,
+            ]
+        );
+
+        $builder = LocalFile::whereIn('id', [$file->id]);
+        $filesDeleted = $this->fileDeleteService->deleteFiles($builder, $storageRoot);
+
+        $this->assertSame(0, $filesDeleted);
+        $this->assertFileExists($symlinkPath);
+        $this->assertFileExists($outsideDir . DS . $targetFile);
+
+        @unlink($symlinkPath);
+        @rmdir($storageRoot);
+        @unlink($outsideDir . DS . $targetFile);
+        @rmdir($outsideDir);
+    }
+
+    public function testDeleteFilesDoesNotDeleteDirectoryOutsideStorage()
+    {
+        $outsideDir = sys_get_temp_dir() . DS . 'pd-outside-dir-' . bin2hex(random_bytes(4));
+        @mkdir($outsideDir);
+
+        $dir = LocalFile::factory()->create(
+            [
+            'private_path' => sys_get_temp_dir() . DS,
+            'filename' => basename($outsideDir),
+            'is_dir' => 1,
+            ]
+        );
+
+        $builder = LocalFile::whereIn('id', [$dir->id]);
+        $filesDeleted = $this->fileDeleteService->deleteFiles($builder, $this->tempDir);
+
+        $this->assertSame(0, $filesDeleted);
+        $this->assertDirectoryExists($outsideDir);
+
+        @rmdir($outsideDir);
     }
 
     protected function setUp(): void

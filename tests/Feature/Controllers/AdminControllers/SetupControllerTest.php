@@ -87,6 +87,7 @@ class SetupControllerTest extends BaseFeatureTest
         $response->assertSessionHas('message', 'Please check the form for errors.');
     }
 
+
     protected function setUp(): void
     {
         parent::setUp();

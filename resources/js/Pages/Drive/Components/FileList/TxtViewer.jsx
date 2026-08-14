@@ -3,6 +3,7 @@ import axios from "axios";
 import { Marked } from "marked";
 import { markedHighlight } from "marked-highlight";
 import hljs from "highlight.js";
+import { sanitizeHtml } from "../../../../lib/sanitizeHtml.js";
 import "highlight.js/styles/github-dark.css"; // Or any other theme you prefer
 
 const TxtViewer = ({
@@ -141,7 +142,7 @@ const TxtViewer = ({
                 <div
                     className={`prose prose-invert w-[90vw] md:w-[70vw] ${isAdmin ? "cursor-pointer" : ""}`}
                     dangerouslySetInnerHTML={{
-                        __html: marked.parse(content || "Click to edit.."),
+                        __html: sanitizeHtml(marked.parse(content || "Click to edit..")),
                     }}
                     onClick={startEditing}
                 />

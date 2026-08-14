@@ -14,8 +14,14 @@ use Throwable;
 class FileOperationsService
 {
     private ?Filesystem $filesystem = null;
-    private string $basePath;
+    private string $basePath = '';
+    private ?PathService $pathService = null;
 
+
+    public function __construct(?PathService $pathService = null)
+    {
+        $this->pathService = $pathService ?? new PathService();
+    }
 
     public function setFilesystem(?Filesystem $filesystem): void
     {
@@ -27,6 +33,13 @@ class FileOperationsService
         if (!$this->makeFileSystem()) {
             return;
         }
+        // $src/$dest are relative to the adapter root ($this->basePath).
+        // Never let a move resolve outside the storage root through a symlink.
+        if (!$this->isPathWithinStorageRoot($this->basePath . DS . $dest)
+            || !$this->isPathWithinStorageRoot($this->basePath . DS . $src)
+        ) {
+            throw FileMoveException::invalidDestinationPath();
+        }
         if ($this->directoryExists($dest)) {
             throw FileMoveException::directoryExists();
         }
@@ -35,6 +48,20 @@ class FileOperationsService
         } catch (Exception) {
             throw FileMoveException::couldNotMove();
         }
+    }
+
+    /**
+     * True when an absolute path may be written to: either the storage root is
+     * not yet materialized (first-time setup creates it) or the path resolves
+     * inside the storage root.
+     */
+    private function isPathWithinStorageRoot(string $absolutePath): bool
+    {
+        if ($this->basePath === '' || !is_dir($this->basePath) || $this->pathService === null) {
+            return true;
+        }
+
+        return $this->pathService->isWithinStorageRoot($absolutePath);
     }
 
     private function makeFileSystem(): bool
@@ -66,6 +93,9 @@ class FileOperationsService
         if ($this->filesystem->fileExists($path)) {
             throw UploadFileException::fileExists();
         }
+        if (!$this->isPathWithinStorageRoot($this->basePath . DS . $path)) {
+            throw UploadFileException::pathOutsideStorageRoot();
+        }
         file_put_contents($this->basePath . DS . $path, '');
         return $this->filesystem->fileExists($path);
     }
@@ -82,6 +112,9 @@ class FileOperationsService
         }
         if ($this->directoryExists($path)) {
             throw UploadFileException::noNewDir('folder');
+        }
+        if (!$this->isPathWithinStorageRoot($this->basePath . DS . $path)) {
+            throw UploadFileException::pathOutsideStorageRoot();
         }
 
         try {

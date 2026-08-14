@@ -186,7 +186,6 @@ class BaseFeatureTest extends TestCase
         Artisan::shouldReceive('call')
             ->once()
             ->with('migrate:fresh', ['--force' => true]);
-
         $response = $this->setupAccountPost();
         $this->assertAuthenticated();
 

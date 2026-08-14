@@ -29,12 +29,12 @@ Route::middleware([OptionalAuth::class, 'web', 'auth', CheckAdmin::class])->grou
     Route::post(
         '/admin-config/two-factor-code-enable',
         [AdminControllers\AdminConfigController::class, 'twoFactorCodeEnable']
-    )->name('admin-config.two-factor-code-enable');
+    )->middleware('throttle:two-factor')->name('admin-config.two-factor-code-enable');
 
     Route::post(
         '/admin-config/two-factor-code-disable',
         [AdminControllers\AdminConfigController::class, 'twoFactorCodeDisable']
-    )->name('admin-config.two-factor-code-disable');
+    )->middleware('throttle:two-factor')->name('admin-config.two-factor-code-disable');
     // Drive routes
     Route::get('/drive/{path?}', [DriveControllers\FileManagerController::class, 'index'])
         ->where('path', '.*')
@@ -85,7 +85,7 @@ Route::middleware([TwoFactorGuest::class])->group(callback: function () {
     Route::post(
         '/login/twoFactor/check',
         [AuthControllers\TwoFactorController::class, 'store']
-    )->name('login.two-factor-check');
+    )->middleware('throttle:two-factor')->name('login.two-factor-check');
 });
 
 // admin or shared

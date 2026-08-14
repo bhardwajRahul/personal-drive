@@ -7,6 +7,7 @@ use App\Services\FileOperationsService;
 use App\Services\UploadService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use Mockery;
@@ -20,6 +21,8 @@ class UploadControllerTest extends BaseFeatureTest
     protected mixed $uploadService;
     private string $fileName = 'dummy.txt';
     private $tempRootDir;
+    private $escapeSymlink;
+    private $escapeOutsideDir;
 
     public function test_store_returns_error_when_no_files_uploaded()
     {
@@ -334,6 +337,89 @@ class UploadControllerTest extends BaseFeatureTest
         return $fileOptsMock;
     }
 
+    public function test_overwrite_does_not_follow_symlink_outside_storage(): void
+    {
+        $this->uploadDuplicates();
+        Storage::disk('local')->deleteDirectory(CONTENT_SUBDIR . '/some/path/foo');
+        $outsideDir = $this->makeSymlinkEscapingStorage('some/path/foo');
+
+        $response = $this->post(
+            route('drive.abort-replace'),
+            [
+                '_token' => csrf_token(),
+                'action' => 'overwrite',
+            ]
+        );
+
+        $response->assertSessionHas('status', false);
+        $this->assertFileDoesNotExist($outsideDir . '/bar/file2');
+    }
+
+    public function test_upload_through_symlink_escaping_storage_fails_gracefully()
+    {
+        $outsideDir = $this->makeSymlinkEscapingStorage();
+
+        $response = $this->post(
+            route('drive.upload'),
+            [
+                '_token' => csrf_token(),
+                'files' => [UploadedFile::fake()->create('escape/evil.txt', 10)],
+                'path' => '',
+            ]
+        );
+
+        $response->assertSessionHas('status', false);
+        $response->assertSessionHas(
+            'message',
+            fn($value) => str_contains($value, 'outside the storage root')
+        );
+        $this->assertFileDoesNotExist($outsideDir . '/evil.txt');
+    }
+
+    public function test_create_item_under_symlink_escaping_storage_fails_gracefully()
+    {
+        $outsideDir = $this->makeSymlinkEscapingStorage();
+
+        $response = $this->post(
+            route('drive.create-item'),
+            [
+                '_token' => csrf_token(),
+                'path' => 'escape',
+                'itemName' => 'newfolder',
+                'isFile' => false,
+            ]
+        );
+
+        $response->assertSessionHas('status', false);
+        $response->assertSessionHas(
+            'message',
+            fn($value) => str_contains($value, 'outside the storage root')
+        );
+        $this->assertDirectoryDoesNotExist($outsideDir . '/newfolder');
+    }
+
+    /**
+     * Place a symlink inside the storage content root pointing outside it
+     * (host-side bind-mount style attack), returns the outside target dir.
+     */
+    private function makeSymlinkEscapingStorage(string $relativePath = 'escape'): string
+    {
+        $outsideDir = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . '/escape_' . uniqid();
+        mkdir($outsideDir, 0755, true);
+
+        $contentRoot = Storage::disk('local')->path(CONTENT_SUBDIR);
+        $link = $contentRoot . '/' . $relativePath;
+        File::ensureDirectoryExists(dirname($link));
+        if (!@symlink($outsideDir, $link)) {
+            rmdir($outsideDir);
+            $this->markTestSkipped('symlink() is not permitted on this host.');
+        }
+        $this->escapeSymlink = $link;
+        $this->escapeOutsideDir = $outsideDir;
+
+        return $outsideDir;
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -344,6 +430,12 @@ class UploadControllerTest extends BaseFeatureTest
 
     protected function tearDown(): void
     {
+        if (isset($this->escapeSymlink) && is_link($this->escapeSymlink)) {
+            unlink($this->escapeSymlink);
+        }
+        if (isset($this->escapeOutsideDir) && is_dir($this->escapeOutsideDir)) {
+            rmdir($this->escapeOutsideDir);
+        }
         Mockery::close();
         Storage::disk('local')->deleteDirectory('');
         parent::tearDown();

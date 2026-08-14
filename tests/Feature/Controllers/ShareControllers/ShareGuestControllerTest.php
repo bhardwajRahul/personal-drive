@@ -9,6 +9,7 @@ use App\Services\LocalFileStatsService;
 use App\Services\ShareAuthorizationService;
 use App\Services\ThumbnailService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\UploadedFile;
 use Mockery;
 use Tests\Feature\BaseFeatureTest;
 
@@ -58,6 +59,52 @@ class ShareGuestControllerTest extends BaseFeatureTest
 
         $response = $this->get(route('drive.fetch-file', ['id' => $toShareFileIds[0], 'slug' => $slug]));
         $response->assertOk();
+    }
+
+    public function test_share_fetch_html_file_forces_attachment()
+    {
+        $slug = 'testslug';
+        $htmlFile = UploadedFile::fake()->createWithContent(
+            'evil.html',
+            '<html><script>alert(1)</script></html>'
+        );
+        $this->postUpload([$htmlFile], '');
+        $localFile = LocalFile::where('filename', 'evil.html')->firstOrFail();
+        $this->assertSame('html', $localFile->file_type);
+
+        $this->createShare([$localFile->id], 'password', 7, $slug);
+        $this->logout();
+
+        $this->postCheckPassword($slug, 'password');
+
+        $this->mockStreamFile();
+
+        $response = $this->get(route('drive.fetch-file', ['id' => $localFile->id, 'slug' => $slug]));
+        $response->assertOk();
+        $this->assertStringContainsString('attachment', $response->headers->get('Content-Disposition'));
+        $this->assertSame('nosniff', $response->headers->get('X-Content-Type-Options'));
+    }
+
+    /**
+     * VideoStreamer::streamFile() exits the process after echoing, so the
+     * real stream cannot run inside a test. Mock it; the controller still
+     * sets its headers on the returned response before streaming.
+     */
+    private function mockStreamFile(): void
+    {
+        $mock = Mockery::mock(
+            FileFetchController::class.'[streamFile]', [
+                app(LocalFileStatsService::class),
+                app(ThumbnailService::class),
+                app(ShareAuthorizationService::class),
+            ]
+        );
+
+        $mock->shouldReceive('streamFile')
+            ->once()
+            ->withAnyArgs();
+
+        $this->app->instance(FileFetchController::class, $mock);
     }
 
     public function test_share_fetch_file_fail()

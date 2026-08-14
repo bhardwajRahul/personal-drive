@@ -19,6 +19,11 @@ class UploadFileException extends PersonalDriveException
         return new self('The upload path or dir contains invalid characters');
     }
 
+    public static function pathOutsideStorageRoot(): UploadFileException
+    {
+        return new self('The path resolves outside the storage root');
+    }
+
     public static function fileExists(): self
     {
         return new self('File already exists');

@@ -37,6 +37,43 @@ class PathService
         return Setting::getStoragePath() . DS . CONTENT_SUBDIR;
     }
 
+    /**
+     * Verify that an absolute target path resolves inside the configured storage root.
+     *
+     * Resolves the deepest existing ancestor of $absoluteTargetPath via realpath
+     * (walking up parent directories while the path does not exist) and returns
+     * true only when that resolved ancestor is the storage root itself or a
+     * descendant of it. This defeats symlinks that live inside the storage tree
+     * but point outside of it.
+     *
+     * Returns false when the storage root cannot be resolved, or when the target
+     * path resolves to a location outside (or above) the storage root.
+     */
+    public function isWithinStorageRoot(string $absoluteTargetPath): bool
+    {
+        $root = realpath(Setting::getStoragePath());
+        if ($root === false) {
+            return false;
+        }
+
+        $existingAncestor = $absoluteTargetPath;
+        while (!file_exists($existingAncestor)) {
+            $parent = dirname($existingAncestor);
+            if ($parent === $existingAncestor || $parent === '.') {
+                return false;
+            }
+            $existingAncestor = $parent;
+        }
+
+        $resolvedAncestor = realpath($existingAncestor);
+        if ($resolvedAncestor === false) {
+            return false;
+        }
+
+        return $resolvedAncestor === $root
+            || str_starts_with($resolvedAncestor, rtrim($root, DS) . DS);
+    }
+
     public function cleanDrivePublicPath(string $path): string
     {
 

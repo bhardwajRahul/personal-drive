@@ -6,8 +6,10 @@ use App\Models\LocalFile;
 use App\Models\Setting;
 use App\Services\FileOperationsService;
 use App\Services\LocalFileStatsService;
+use App\Services\PathService;
 use Illuminate\Testing\TestResponse;
 use Mockery;
+use PragmaRX\Google2FAQRCode\Google2FA;
 use Tests\Feature\BaseFeatureTest;
 use ReflectionProperty;
 use UnexpectedValueException;
@@ -131,10 +133,40 @@ class AdminConfigControllerTest extends BaseFeatureTest
         parent::setUp();
         $this->makeUserUsingSetup();
         $this->newStoragePath = '/foo/bar';
-        $this->fileOptsMock = Mockery::mock(FileOperationsService::class)->makePartial();
+        $this->fileOptsMock = Mockery::mock(FileOperationsService::class, [new PathService()])->makePartial();
         $this->app->instance(FileOperationsService::class, $this->fileOptsMock);
         $this->settingMock = Mockery::mock(Setting::class)->makePartial();
         $this->app->instance(Setting::class, $this->settingMock);
         $this->setupStoragePathPost();
+    }
+
+    public function test_two_factor_code_enable_is_throttled_after_six_attempts()
+    {
+        $google2FA = Mockery::mock(Google2FA::class);
+        $google2FA->shouldReceive('verify')->andReturn(false);
+        $this->app->instance(Google2FA::class, $google2FA);
+
+        // the first five attempts are allowed through to the controller
+        for ($i = 0; $i < 5; $i++) {
+            $this->post(
+                route('admin-config.two-factor-code-enable'),
+                [
+                    '_token' => csrf_token(),
+                    'code' => '000000',
+                ]
+            );
+        }
+
+        // the sixth attempt within the window is throttled (ThrottleException)
+        $response = $this->post(
+            route('admin-config.two-factor-code-enable'),
+            [
+                '_token' => csrf_token(),
+                'code' => '000000',
+            ]
+        );
+        $response->assertRedirect(
+            route('rejected', ['message' => 'Too Many requests. Please try again later'])
+        );
     }
 }

@@ -24,7 +24,10 @@ class FileDeleteService
             }
 
             // Handle file deletion
-            if ($this->isDeletableFile($file) && unlink($privateFilePathName)) {
+            if ($this->isDeletableFile($file)
+                && $this->isPathWithinStorage($privateFilePathName, $rootStoragePath)
+                && unlink($privateFilePathName)
+            ) {
                 $filesDeleted++;
             }
         }
@@ -38,7 +41,7 @@ class FileDeleteService
         string $rootStoragePath
     ): bool {
         if ($this->isDeletableDirectory($file, $privateFilePathName)
-            && $this->isDirSubDirOfStorage($privateFilePathName, $rootStoragePath)
+            && $this->isPathWithinStorage($privateFilePathName, $rootStoragePath)
         ) {
             File::deleteDirectory($privateFilePathName);
             $file->deleteUsingPublicPath();
@@ -52,9 +55,9 @@ class FileDeleteService
         return $file->is_dir && file_exists($privateFilePathName) && is_dir($privateFilePathName);
     }
 
-    public function isDirSubDirOfStorage(string $privateFilePathName, string $rootStoragePath): bool
+    public function isPathWithinStorage(string $privatePathName, string $rootStoragePath): bool
     {
-        $path = realpath($privateFilePathName);
+        $path = realpath($privatePathName);
         $root = realpath($rootStoragePath);
 
         if ($path === false || $root === false) {

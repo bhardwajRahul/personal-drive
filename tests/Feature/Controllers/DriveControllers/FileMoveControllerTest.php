@@ -116,6 +116,7 @@ class FileMoveControllerTest extends BaseFeatureTest
         $this->assertDatabaseHas('local_files', ['id' => $second->id, 'public_path' => 'second']);
     }
 
+
     public function test_move_file_success()
     {
         $testPath = $this->setupUploadBeforeMove();

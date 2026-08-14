@@ -71,7 +71,9 @@ class UploadService
         }
 
         foreach ($this->filesystem->allFiles($tempDir) as $file) {
-            $this->syncFileToStorage($file, $tempDir, $storageDir);
+            if (!$this->syncFileToStorage($file, $tempDir, $storageDir)) {
+                return false;
+            }
         }
 
         return true;
@@ -84,14 +86,18 @@ class UploadService
             $this->filesystem->isDirectory($path);
     }
 
-    public function syncFileToStorage(SplFileInfo $tempFileSplInfo, string $sourceRoot, string $targetRoot): void
+    public function syncFileToStorage(SplFileInfo $tempFileSplInfo, string $sourceRoot, string $targetRoot): bool
     {
         $targetPath = Str::replaceFirst($sourceRoot, $targetRoot, $tempFileSplInfo->getPathname());
 
-        if ($this->filesystem->exists($targetPath) 
+        if (!$this->pathService->isWithinStorageRoot($targetPath)) {
+            return false;
+        }
+
+        if ($this->filesystem->exists($targetPath)
             && $this->isFileFolderMisMatch($tempFileSplInfo->getPathname(), $targetPath)
         ) {
-            return;
+            return true;
         }
 
         $this->filesystem->ensureDirectoryExists(dirname($targetPath));
@@ -108,6 +114,8 @@ class UploadService
         }
 
         $this->thumbnailService->genThumbnailsForFileIds([$existingFile->id]);
+
+        return true;
     }
 
     public function isFileFolderMisMatch(string $file, string $directory): bool
