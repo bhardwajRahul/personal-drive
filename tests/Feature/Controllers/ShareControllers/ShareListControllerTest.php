@@ -41,6 +41,57 @@ class ShareListControllerTest extends BaseFeatureTest
         );
     }
 
+    public function test_added_share_row_shows_all_values_then_pause_then_delete()
+    {
+        $slug = 'row-values';
+        list($toShareFileIds, $password) = $this->getDataForMakingShare();
+        $this->createShare($toShareFileIds, $password, 7, $slug);
+
+        $share = Share::whereBySlug($slug)->firstOrFail();
+        $expectedFilenames = LocalFile::whereIn('id', $toShareFileIds)->orderBy('id')->pluck('filename');
+
+        // row visible with all column values rendered by AllShares
+        $this->get('shares-all')->assertInertia(
+            fn($page) => $page
+                ->component('Drive/Shares/AllShares')
+                ->has('shares', 1)
+                ->where('shares.0.id', $share->id)
+                ->where('shares.0.slug', $slug)
+                ->where('shares.0.enabled', 1)
+                ->where('shares.0.password', fn($v) => Hash::check($password, $v))
+                ->where('shares.0.expiry', 7)
+                ->where('shares.0.expiry_time', $share->expiry_time)
+                ->where('shares.0.created_at', fn($v) => str_starts_with($v, $share->created_at->toDateString()))
+                ->has('shares.0.shared_files', count($toShareFileIds))
+                ->where('shares.0.shared_files.0.local_file.filename', $expectedFilenames[0])
+                ->where('shares.0.shared_files.1.local_file.filename', $expectedFilenames[1])
+        );
+
+        // pause -> row still visible, now disabled
+        $this->post(route('drive.share-pause'), ['_token' => csrf_token(), 'id' => $share->id])
+            ->assertSessionHas('status', true)
+            ->assertSessionHas('message', 'Paused');
+
+        $this->get('shares-all')->assertInertia(
+            fn($page) => $page
+                ->component('Drive/Shares/AllShares')
+                ->has('shares', 1)
+                ->where('shares.0.id', $share->id)
+                ->where('shares.0.enabled', 0)
+        );
+
+        // delete -> row gone
+        $this->post(route('drive.share-delete'), ['_token' => csrf_token(), 'id' => $share->id])
+            ->assertSessionHas('status', true)
+            ->assertSessionHas('message', 'Successfully deleted share');
+
+        $this->get('shares-all')->assertInertia(
+            fn($page) => $page
+                ->component('Drive/Shares/AllShares')
+                ->has('shares', 0)
+        );
+    }
+
     public function test_list_expiry_scenarios()
     {
         list($toShareFileIds) = $this->getDataForMakingShare();

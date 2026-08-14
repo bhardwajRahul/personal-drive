@@ -80,6 +80,7 @@ class LocalFile extends Model
         return $fileItems->map(
             function ($item) use ($publicPath) {
                 $item->sizeText = self::getItemSizeText($item);
+                $item->date = filemtime($item->getPrivatePathNameForFile());
                 if ($publicPath) {
                     $item->public_path = substr($item->getPublicPath(), strlen($publicPath));
                 }

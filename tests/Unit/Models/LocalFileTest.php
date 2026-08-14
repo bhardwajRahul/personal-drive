@@ -174,11 +174,16 @@ class LocalFileTest extends BaseFeatureTest
 
     public function test_modify_file_collection_for_guest_modifies_public_path()
     {
-        $file = LocalFile::factory()->create(['public_path' => 'shared/folder']);
+        $this->uploadMultipleFiles('', ['shared/folder/file.txt']);
+        $file = LocalFile::where('filename', 'file.txt')
+            ->where('public_path', 'shared/folder')
+            ->firstOrFail();
         $collection = new Collection([$file]);
 
         $modifiedCollection = LocalFile::modifyFileCollectionForGuest($collection, '/shared');
         $this->assertEquals('folder/', $modifiedCollection->first()->public_path);
+        $this->assertNotNull($modifiedCollection->first()->date);
+
     }
 
     public function test_search_files_returns_matching_files()
