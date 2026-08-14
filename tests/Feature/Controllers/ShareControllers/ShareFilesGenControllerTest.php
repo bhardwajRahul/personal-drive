@@ -83,6 +83,20 @@ class ShareFilesGenControllerTest extends BaseFeatureTest
         $this->assertEmpty($share->password);
         $this->assertEmpty($share->expiry);
     }
+    public function test_share_rejects_file_missing_from_storage(): void
+    {
+        $file = LocalFile::getByName('ace.txt')->firstOrFail();
+
+        $this->assertFileExists($file->getPrivatePathNameForFile());
+        $this->assertTrue(unlink($file->getPrivatePathNameForFile()));
+
+        $response = $this->createShare([$file->id]);
+
+        $response->assertSessionHas('status', false);
+        $this->assertDatabaseCount('shares', 0);
+        $this->assertDatabaseHas('local_files', ['id' => $file->id]);
+    }
+
 
 
     protected function setUp(): void

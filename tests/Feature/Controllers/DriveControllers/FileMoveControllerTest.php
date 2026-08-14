@@ -208,6 +208,20 @@ class FileMoveControllerTest extends BaseFeatureTest
         $this->assertSame('original content', $download->streamedContent());
     }
 
+    public function test_move_missing_file_fails_without_removing_its_index_record(): void
+    {
+        $this->setupUploadBeforeMove();
+        $file = LocalFile::where('filename', '1.txt')->where('public_path', 'bar')->firstOrFail();
+
+        $this->assertFileExists($file->getPrivatePathNameForFile());
+        $this->assertTrue(unlink($file->getPrivatePathNameForFile()));
+
+        $response = $this->postMoveFiles([$file->id], 'foo');
+
+        $response->assertSessionHas('status', false);
+        $this->assertDatabaseHas('local_files', ['id' => $file->id, 'public_path' => 'bar']);
+    }
+
     public function postMoveFiles(array $fileIds, string $path): TestResponse
     {
         return $this->post(

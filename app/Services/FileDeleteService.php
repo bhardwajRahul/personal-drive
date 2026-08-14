@@ -15,6 +15,7 @@ class FileDeleteService
         foreach ($filesInDB->get() as $file) {
             $privateFilePathName = $file->getPrivatePathNameForFile();
             if (!file_exists($privateFilePathName)) {
+                $filesDeleted++;
                 continue;
             }
 

@@ -44,6 +44,10 @@ class DownloadController extends Controller
         if ($localFiles->isEmpty()) {
             return ResponseHelper::json('Could not find files to download', false);
         }
+        if ($localFiles->contains(fn (LocalFile $file) => !file_exists($file->getPrivatePathNameForFile()))) {
+            return ResponseHelper::json('One or more selected files are unavailable', false, 404);
+        }
+
         if (Session::get('share_id') && !$this->guestVerified($fileKeyArray, $this->shareAuthorizationService)) {
             return ResponseHelper::json('Error: authorization issue', false);
         }

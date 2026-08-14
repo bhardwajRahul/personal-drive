@@ -56,6 +56,24 @@ class FileDeleteControllerTest extends BaseFeatureTest
         $remainingFiles = LocalFile::all();
         $this->assertCount(4, $remainingFiles);
     }
+    public function test_delete_missing_file_removes_its_index_record(): void
+    {
+        $this->uploadFile('', 'missing.txt', 100);
+        $file = LocalFile::firstOrFail();
+
+        $this->assertFileExists($file->getPrivatePathNameForFile());
+        $this->assertTrue(unlink($file->getPrivatePathNameForFile()));
+
+        $response = $this->post(route('drive.delete-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$file->id],
+        ]);
+
+        $response->assertSessionHas('status', true);
+        $response->assertSessionHas('message', 'Deleted 1 files');
+        $this->assertDatabaseMissing('local_files', ['id' => $file->id]);
+    }
+
 
 
     protected function setUp(): void

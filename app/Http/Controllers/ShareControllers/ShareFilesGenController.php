@@ -41,7 +41,9 @@ class ShareFilesGenController extends Controller
 
         $slug = $slug ?: Str::random(10);
 
-        if (!$localFiles->count()) {
+        if ($localFiles->isEmpty()
+            || $localFiles->contains(fn (LocalFile $file) => !$file->isValidFile() && !$file->isValidDir())
+        ) {
             throw ShareFileException::couldNotShare();
         }
         $hashedPassword = $password ? Hash::make($password) : null;

@@ -95,6 +95,20 @@ class FileRenameControllerTest extends BaseFeatureTest
         $response->assertSessionHas('status', false);
         $response->assertSessionHas('message', 'Could not find file');
     }
+    public function test_rename_missing_file_fails_without_changing_its_index_record(): void
+    {
+        $this->uploadFile('', 'missing.txt', 100);
+        $file = LocalFile::firstOrFail();
+
+        $this->assertFileExists($file->getPrivatePathNameForFile());
+        $this->assertTrue(unlink($file->getPrivatePathNameForFile()));
+
+        $response = $this->postRename($file->id, 'renamed.txt');
+
+        $response->assertSessionHas('status', false);
+        $this->assertDatabaseHas('local_files', ['id' => $file->id, 'filename' => 'missing.txt']);
+    }
+
 
     protected function setUp(): void
     {

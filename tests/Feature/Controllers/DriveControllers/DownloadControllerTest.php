@@ -102,6 +102,23 @@ class DownloadControllerTest extends BaseFeatureTest
             ]
         );
     }
+    public function test_index_returns_not_found_when_file_is_missing_from_storage(): void
+    {
+        $file = LocalFile::getByName('ace.txt')->firstOrFail();
+
+        $this->assertFileExists($file->getPrivatePathNameForFile());
+        $this->assertTrue(unlink($file->getPrivatePathNameForFile()));
+
+        $response = $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$file->id],
+        ]);
+
+        $response->assertNotFound();
+        $response->assertJson(['status' => false]);
+        $this->assertDatabaseHas('local_files', ['id' => $file->id]);
+    }
+
 
 
     public function test_index_downloads_multiple_files_as_zip(): void
