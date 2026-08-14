@@ -61,6 +61,10 @@ Route::middleware([OptionalAuth::class, 'web', 'auth', CheckAdmin::class])->grou
     Route::post('/save-file', [DriveControllers\FileSaveController::class, 'update'])
         ->name('drive.save-file');
     Route::post('/move-files', [DriveControllers\FileMoveController::class, 'update'])->name('drive.move-files');
+    Route::get('/favorites', [DriveControllers\FavoritesController::class, 'index'])->name('drive.favorites.index');
+    Route::post('/favorites', [DriveControllers\FavoritesController::class, 'store'])->name('drive.favorites.store');
+    Route::delete('/favorites/{favoriteId}', [DriveControllers\FavoritesController::class, 'destroy'])
+        ->name('drive.favorites.destroy');
 
     // Share control Routes
     Route::post('/share-pause', [ShareControllers\ShareFilesModController::class, 'pause'])
