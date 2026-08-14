@@ -19,6 +19,8 @@ const FileListRow = React.memo(function FileListRow({
     setSelectedFiles,
     setIsRenameModalOpen,
     setFileToRename,
+    favoriteFileIds,
+    onAddFavorite,
 }) {
     const [sizeValue, sizeUnit] = file.sizeText.split(" ");
     return (
@@ -49,6 +51,8 @@ const FileListRow = React.memo(function FileListRow({
                         setSelectedFiles={setSelectedFiles}
                         setIsRenameModalOpen={setIsRenameModalOpen}
                         setFileToRename={setFileToRename}
+                        favoriteFileIds={favoriteFileIds}
+                        onAddFavorite={onAddFavorite}
                     />
                 ) : (
                     <FileItem
@@ -66,6 +70,8 @@ const FileListRow = React.memo(function FileListRow({
                         setSelectedFiles={setSelectedFiles}
                         setIsRenameModalOpen={setIsRenameModalOpen}
                         setFileToRename={setFileToRename}
+                        favoriteFileIds={favoriteFileIds}
+                        onAddFavorite={onAddFavorite}
                     />
                 )}
             </td>

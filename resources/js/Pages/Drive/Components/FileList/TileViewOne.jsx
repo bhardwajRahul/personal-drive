@@ -25,6 +25,8 @@ const TileViewOne = ({
     setSelectedFiles,
     setIsRenameModalOpen,
     setFileToRename,
+    favoriteFileIds,
+    onAddFavorite,
 }) => {
     useEffect(() => {
         useThumbnailGenerator(filesCopy, path);
@@ -117,6 +119,8 @@ const TileViewOne = ({
                         setSelectedFiles={setSelectedFiles}
                         setIsRenameModalOpen={setIsRenameModalOpen}
                         setFileToRename={setFileToRename}
+                        favoriteFileIds={favoriteFileIds}
+                        onAddFavorite={onAddFavorite}
                     />
                 ))}
             </div>

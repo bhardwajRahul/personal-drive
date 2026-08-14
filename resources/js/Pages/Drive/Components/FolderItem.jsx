@@ -2,6 +2,7 @@ import { Folder } from "lucide-react";
 import { Link } from "@inertiajs/react";
 import DownloadButton from "./DownloadButton.jsx";
 import DeleteButton from "@/Pages/Drive/Components/DeleteButton.jsx";
+import FavoriteButton from "@/Pages/Drive/Components/FavoriteButton.jsx";
 import React from "react";
 import ShowShareModalButton from "@/Pages/Drive/Components/Shares/ShowShareModalButton.jsx";
 import RenameModalButton from "@/Pages/Drive/Components/Shares/RenameModalButton.jsx";
@@ -21,6 +22,8 @@ const FolderItem = React.memo(function FolderItem({
     setSelectedFiles,
     setIsRenameModalOpen,
     setFileToRename,
+    favoriteFileIds,
+    onAddFavorite,
 }) {
     return (
         <div className="flex min-w-0 items-center justify-between md:hover:bg-gray-900">
@@ -64,6 +67,11 @@ const FolderItem = React.memo(function FolderItem({
                 />
                 {isAdmin && (
                     <>
+                        <FavoriteButton
+                            isFavorite={favoriteFileIds.has(file.id)}
+                            onClick={() => onAddFavorite(file.id)}
+                            classes="hidden group-hover:flex group-focus-within:flex mr-2 z-10"
+                        />
                         <ShowShareModalButton
                             classes="hidden group-hover:block mr-2 z-10"
                             setIsShareModalOpen={setIsShareModalOpen}

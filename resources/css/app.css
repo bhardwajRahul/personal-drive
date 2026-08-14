@@ -25,3 +25,11 @@
 audio::-webkit-media-controls-panel {
     background-color: rgba(38, 57, 122, 0.58);
 }
+
+.truncate-left {
+    direction: rtl;
+    overflow: hidden;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

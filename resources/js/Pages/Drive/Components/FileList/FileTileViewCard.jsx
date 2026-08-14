@@ -2,6 +2,7 @@ import React from "react";
 import {File, Folder} from "lucide-react";
 import {Link} from "@inertiajs/react";
 import DeleteButton from "@/Pages/Drive/Components/DeleteButton.jsx";
+import FavoriteButton from "@/Pages/Drive/Components/FavoriteButton.jsx";
 import DownloadButton from "@/Pages/Drive/Components/DownloadButton.jsx";
 import ShowShareModalButton from "@/Pages/Drive/Components/Shares/ShowShareModalButton.jsx";
 import RenameModalButton from "@/Pages/Drive/Components/Shares/RenameModalButton.jsx";
@@ -23,6 +24,8 @@ const FileTileViewCard = React.memo(function FileTileViewCard({
     setSelectedFiles,
     setIsRenameModalOpen,
     setFileToRename,
+    favoriteFileIds,
+    onAddFavorite,
 }) {
     const selectedFileSet = new Set([file.id]);
     let imageSrc = "/fetch-thumb/" + file.id;
@@ -95,7 +98,8 @@ const FileTileViewCard = React.memo(function FileTileViewCard({
 
             {/* Action Buttons - Hidden by default, shown on hover */}
             <div
-                className="justify-between absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full px-1 md:px-3 mb-1 md:mb-2 opacity-70 md:group-hover:flex hidden bg-gray-900/90 py-1">
+                className="absolute bottom-0 left-1/2 hidden w-full -translate-x-1/2 justify-between bg-gray-900/90 px-1 py-1 opacity-70 md:mb-2 md:px-3 md:group-hover:flex md:group-focus-within:flex"
+            >
                 {isAdmin && (
                     <div className="flex-1">
                         <DeleteButton
@@ -113,6 +117,11 @@ const FileTileViewCard = React.memo(function FileTileViewCard({
                                 setIsShareModalOpen={setIsShareModalOpen}
                                 setFilesToShare={setFilesToShare}
                                 filesToShare={new Set([file.id])}
+                            />
+                            <FavoriteButton
+                                isFavorite={favoriteFileIds.has(file.id)}
+                                onClick={() => onAddFavorite(file.id)}
+                                classes="ml-1 md:ml-2 z-10"
                             />
                             <RenameModalButton
                                 classes="ml-1 md:ml-2 z-10"

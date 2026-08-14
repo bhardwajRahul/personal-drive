@@ -24,6 +24,8 @@ const ListView = ({
     setSelectedFiles,
     setIsRenameModalOpen,
     setFileToRename,
+    favoriteFileIds,
+    onAddFavorite,
 }) => {
     function handleSortClick(e, key) {
         let sortedFiles = sortCol(filesCopy, key);
@@ -127,6 +129,8 @@ const ListView = ({
                             setSelectedFiles={setSelectedFiles}
                             setIsRenameModalOpen={setIsRenameModalOpen}
                             setFileToRename={setFileToRename}
+                            favoriteFileIds={favoriteFileIds}
+                            onAddFavorite={onAddFavorite}
                         />
                     ))}
                 </tbody>

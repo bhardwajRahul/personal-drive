@@ -7,7 +7,7 @@ import {
     useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { Grid, List, Star, StepBackIcon } from "lucide-react";
+import { Grid, List, StepBackIcon } from "lucide-react";
 import MediaViewer from "./FileList/MediaViewer.jsx";
 import TileViewOne from "./FileList/TileViewOne.jsx";
 import ListView from "./FileList/ListView.jsx";
@@ -19,6 +19,7 @@ import DownloadButton from "@/Pages/Drive/Components/DownloadButton.jsx";
 import ShowShareModalButton from "@/Pages/Drive/Components/Shares/ShowShareModalButton.jsx";
 import DeleteButton from "@/Pages/Drive/Components/DeleteButton.jsx";
 import FavoritesMenu from "@/Pages/Drive/Components/FavoritesMenu.jsx";
+import FavoriteButton from "@/Pages/Drive/Components/FavoriteButton.jsx";
 import UploadMenu from "@/Pages/Drive/Components/UploadMenu.jsx";
 import { router, usePage } from "@inertiajs/react";
 import RenameModal from "@/Pages/Drive/Components/FileList/RenameModal.jsx";
@@ -65,7 +66,9 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
     const [fileToRename, setFileToRename] = useState(new Set());
     const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
     const [favoriteItems, setFavoriteItems] = useState(favorites);
-    const [isAddingFavorites, setIsAddingFavorites] = useState(false);
+    const favoriteFileIds = new Set(
+        favoriteItems.map((favorite) => favorite.local_file_id),
+    );
 
     const { cutFiles, setCutFiles, cutPath, setCutPath } =
         useContext(CutFilesContext);
@@ -98,73 +101,71 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
         );
     };
 
-    const handleAddFavorites = async () => {
-        if (isAddingFavorites) {
-            return;
-        }
-
-        const favoriteFileIds = new Set(
-            favoriteItems.map((favorite) => favorite.local_file_id),
-        );
-        const localFileIds = Array.from(selectedFiles).filter(
-            (fileId) => !favoriteFileIds.has(fileId),
-        );
-
+    const toggleFavorites = async (localFileIds, clearSelection = false) => {
         if (localFileIds.length === 0) {
             return;
         }
 
-        setIsAddingFavorites(true);
+        const allFavorited = localFileIds.every((fileId) =>
+            favoriteFileIds.has(fileId),
+        );
 
         try {
-            const response = await axios.post("/favorites", {
-                local_file_ids: localFileIds,
-            });
+            if (allFavorited) {
+                const localFileIdSet = new Set(localFileIds);
+                const favoritesToRemove = favoriteItems.filter((favorite) =>
+                    localFileIdSet.has(favorite.local_file_id),
+                );
 
-            setFavoriteItems(response.data.favorites);
-            setStatusMessage("");
+                await Promise.all(
+                    favoritesToRemove.map((favorite) =>
+                        axios.delete(`/favorites/${favorite.id}`),
+                    ),
+                );
+                setFavoriteItems((items) =>
+                    items.filter(
+                        (favorite) =>
+                            !localFileIdSet.has(favorite.local_file_id),
+                    ),
+                );
+            } else {
+                const response = await axios.post("/favorites", {
+                    local_file_ids: localFileIds.filter(
+                        (fileId) => !favoriteFileIds.has(fileId),
+                    ),
+                });
+                setFavoriteItems(response.data.favorites);
+            }
+
+            if (clearSelection) {
+                setSelectedFiles(new Set());
+                setSelectAllToggle(false);
+            }
+
+            setAlertStatus(true);
+            setStatusMessage(
+                allFavorited
+                    ? "Removed from favorites"
+                    : "Added to favorites",
+            );
         } catch {
             setAlertStatus(false);
-            setStatusMessage("Could not add favorites");
-        } finally {
-            setIsAddingFavorites(false);
+            setStatusMessage("Could not update favorites");
         }
     };
 
-    const handleRemoveFavorite = async (favoriteId) => {
-        const originalIndex = favoriteItems.findIndex(
-            (favorite) => favorite.id === favoriteId,
-        );
-        const removedFavorite = favoriteItems[originalIndex];
+    const handleAddFavorites = () =>
+        toggleFavorites(Array.from(selectedFiles), true);
 
-        if (!removedFavorite) {
-            return;
-        }
+    const handleAddFavorite = (localFileId) => toggleFavorites([localFileId]);
 
-        setFavoriteItems((currentFavorites) =>
-            currentFavorites.filter((favorite) => favorite.id !== favoriteId),
+    const handleRemoveFavorite = (favoriteId) => {
+        const favorite = favoriteItems.find(
+            (item) => item.id === favoriteId,
         );
 
-        try {
-            await axios.delete(`/favorites/${favoriteId}`);
-        } catch {
-            setFavoriteItems((currentFavorites) => {
-                if (
-                    currentFavorites.some(
-                        (favorite) => favorite.id === removedFavorite.id,
-                    )
-                ) {
-                    return currentFavorites;
-                }
-
-                return [
-                    ...currentFavorites.slice(0, originalIndex),
-                    removedFavorite,
-                    ...currentFavorites.slice(originalIndex),
-                ];
-            });
-            setAlertStatus(false);
-            setStatusMessage("Could not remove favorite");
+        if (favorite) {
+            return toggleFavorites([favorite.local_file_id]);
         }
     };
 
@@ -370,24 +371,16 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                                 setSelectedFiles={setSelectedFiles}
                                 selectedFiles={selectedFiles}
                                 setStatusMessage={notify}
-                                statusMessage={statusMessage}
                                 setSelectAllToggle={setSelectAllToggle}
                                 slug={slug}
                                 setAlertStatus={updateAlertStatus}
                             />
                             {isAdmin && (
-                                <button
-                                    type="button"
-                                    className="flex h-11 w-11 items-center justify-center rounded-md border border-yellow-600 text-yellow-300 hover:bg-yellow-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-800 active:bg-yellow-900 disabled:cursor-not-allowed disabled:opacity-50"
+                                <FavoriteButton
                                     onClick={handleAddFavorites}
-                                    disabled={isAddingFavorites}
-                                    title="Add selected items to favorites"
-                                >
-                                    <Star className="h-5 w-5" aria-hidden="true" />
-                                    <span className="sr-only">
-                                        Add selected items to favorites
-                                    </span>
-                                </button>
+                                    label="Add selected items to favorites"
+
+                                />
                             )}
                             {isAdmin && (
                                 <>
@@ -492,6 +485,8 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                                 setSelectedFiles={setSelectedFiles}
                                 setIsRenameModalOpen={setIsRenameModalOpen}
                                 setFileToRename={setFileToRename}
+                                favoriteFileIds={favoriteFileIds}
+                                onAddFavorite={handleAddFavorite}
                             />
                         )}
                         {currentViewMode === "ListView" && (
@@ -517,6 +512,8 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                                 setSelectedFiles={setSelectedFiles}
                                 setIsRenameModalOpen={setIsRenameModalOpen}
                                 setFileToRename={setFileToRename}
+                                favoriteFileIds={favoriteFileIds}
+                                onAddFavorite={handleAddFavorite}
                             />
                         )}
                     </>
