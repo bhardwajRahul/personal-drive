@@ -38,17 +38,24 @@ const TileViewOne = ({
     return (
         <div className="w-full flex flex-col flex-wrap ">
             <div className=" text-center flex items-center gap-x-2 justify-between mb-6 text-xs md:text-sm  text-gray-400 ">
+                <button
+                    className="flex items-center rounded-md bg-gray-700 p-1 hover:bg-gray-600 sm:hidden"
+                    onClick={() => handleSelectAllToggle(filesCopy)}
+                >
+                    Select All
+                </button>
                 <div
-                    className="text-center bg-gray-900/50 hover:bg-gray-700 hover:cursor-pointer flex items-center gap-x-2 p-1 md:p-3 whitespace-nowrap"
+                    className="hidden items-center gap-x-2 whitespace-nowrap bg-gray-900/50 p-1 text-center hover:cursor-pointer hover:bg-gray-700 sm:flex md:p-3"
                     onClick={() => handleSelectAllToggle(filesCopy)}
                 >
                     <input
-                        className=" hover:cursor-pointer"
+                        className="hover:cursor-pointer"
                         type="checkbox"
+                        aria-label="Select all"
                         checked={selectAllToggle}
                         readOnly
                     />
-                    <label className=" hover:cursor-pointer">Select All</label>
+                    <label className="hover:cursor-pointer">Select All</label>
                 </div>
                 <div className="hover:cursor-pointer flex items-center gap-x-2">
                     <label></label>
