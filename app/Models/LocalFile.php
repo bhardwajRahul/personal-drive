@@ -127,6 +127,11 @@ class LocalFile extends Model
         return $this->hasMany(SharedFile::class, 'file_id');
     }
 
+    public function favorites(): HasMany
+    {
+        return $this->hasMany(Favorite::class, 'local_file_id');
+    }
+
     public function deleteUsingPublicPath()
     {
         return self::getByPublicPathLikeSearch($this->getPublicPathPlusName())->delete();
