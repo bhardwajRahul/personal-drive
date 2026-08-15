@@ -1,21 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { router, usePage } from "@inertiajs/react";
+import { router } from "@inertiajs/react";
 import useClickOutside from "../Hooks/useClickOutside.jsx";
 import CreateItemModal from "./CreateFolderModal.jsx";
 import useThumbnailGenerator from "@/Pages/Drive/Hooks/useThumbnailGenerator.jsx";
 import { UploadCloudIcon } from "lucide-react";
 import FileDropzone from "@/Pages/Drive/Components/DropZone.jsx";
 import ReplaceAbortModal from "@/Pages/Drive/Components/ReplaceAbortModal.jsx";
+import UploadQueueDialog from "@/Pages/Drive/Components/UploadQueueDialog.jsx";
+import useUploadQueue from "@/Pages/Drive/Hooks/useUploadQueue.jsx";
 
 const UploadMenu = ({ path, setStatusMessage, files }) => {
-    let { flash } = usePage().props;
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isReplaceAbortModalOpen, setIsReplaceAbortModalOpen] =
         useState(false);
     const [uploadedFiles, setUploadedFiles] = useState([]);
+    const uploadQueue = useUploadQueue();
 
     const fileInputRef = useRef(null);
     const folderInputRef = useRef(null);
@@ -36,16 +38,27 @@ const UploadMenu = ({ path, setStatusMessage, files }) => {
     function uploadFiles(selectedFileForUpload) {
         setStatusMessage("Uploading...");
         const formData = new FormData();
+
         selectedFileForUpload.forEach((file) => {
             const fileName =
                 file.webkitRelativePath || file.relativePath || file.name;
+
             formData.append("files[]", file, fileName);
         });
+
         formData.append("path", path);
+
         router.post("/upload", formData, {
             only: ["files", "flash"],
-            onSuccess: () => {
+            onSuccess: (page) => {
                 setUploadedFiles(selectedFileForUpload);
+
+                if (page.props.flash?.more_info?.replaceAbort) {
+                    setIsReplaceAbortModalOpen(true);
+                    return;
+                }
+
+                uploadQueue.finish();
             },
             onError: (error) => {
                 if (error.response?.status === 413) {
@@ -53,6 +66,8 @@ const UploadMenu = ({ path, setStatusMessage, files }) => {
                         "File too large for server to handle. Please upload a smaller file.",
                     );
                 }
+
+                uploadQueue.finish();
             },
             onFinish: () => {
                 setStatusMessage("");
@@ -65,21 +80,18 @@ const UploadMenu = ({ path, setStatusMessage, files }) => {
     const handleUploadButton = async (event) => {
         let filesForUpload = Array.from(event.target.files || []);
         if (!filesForUpload.length) return;
-        uploadFiles(filesForUpload);
+        uploadQueue.add(filesForUpload, uploadFiles);
     };
 
     async function handleDroppedFiles(files) {
-        uploadFiles(files);
+        uploadQueue.add(files, uploadFiles);
     }
 
     useEffect(() => {
         if (uploadedFiles.length > 0) {
             useThumbnailGenerator(files, path);
         }
-        if (flash.more_info?.replaceAbort) {
-            setIsReplaceAbortModalOpen(true);
-        }
-    }, [uploadedFiles, flash.more_info]);
+    }, [uploadedFiles]);
 
     return (
         <>
@@ -88,8 +100,10 @@ const UploadMenu = ({ path, setStatusMessage, files }) => {
                 <ReplaceAbortModal
                     isReplaceAbortModalOpen={isReplaceAbortModalOpen}
                     setIsReplaceAbortModalOpen={setIsReplaceAbortModalOpen}
+                    onResolved={uploadQueue.finish}
                 />
             )}
+            <UploadQueueDialog items={uploadQueue.items} />
 
             <div ref={menuRef} className="relative mr-1 p-0">
                 <button

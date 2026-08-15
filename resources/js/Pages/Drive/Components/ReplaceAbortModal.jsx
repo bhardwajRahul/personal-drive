@@ -4,6 +4,7 @@ import { useForm } from "@inertiajs/react";
 const ReplaceAbort = ({
     isReplaceAbortModalOpen,
     setIsReplaceAbortModalOpen,
+    onResolved,
 }) => {
     const { data, setData, post } = useForm({ action: "" });
 
@@ -27,6 +28,7 @@ const ReplaceAbort = ({
             only: ["files", "flash", "errors"],
             onSuccess: () => {
                 handleCloseModal(false);
+                onResolved();
                 setTimeout(forceReloadImages, 500);
             },
         });
