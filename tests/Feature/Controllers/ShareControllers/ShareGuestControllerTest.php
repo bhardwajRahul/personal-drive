@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Controllers\ShareControllers;
 
+use App\Http\Middleware\HandleGuestShareMiddleware;
 use App\Http\Controllers\DriveControllers\FileFetchController;
 use App\Models\LocalFile;
 use App\Models\Share;
@@ -632,6 +633,16 @@ class ShareGuestControllerTest extends BaseFeatureTest
 
         $response = $this->get('/shared/' . 'no-such-share');
         $response->assertRedirect(route('login', ['slug' => 'no-such-share']));
+    }
+
+    public function test_missing_share_is_handled_without_guest_middleware(): void
+    {
+        $this->withoutMiddleware(HandleGuestShareMiddleware::class);
+
+        $response = $this->get('/shared/no-such-share');
+
+        $response->assertSessionHas('status', false);
+        $response->assertSessionHas('message', 'Wrong password');
     }
 
     //    public function test_share_download_with_invalid_files()

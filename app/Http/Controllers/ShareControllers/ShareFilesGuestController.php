@@ -21,6 +21,9 @@ class ShareFilesGuestController extends Controller
         $slug = $request->validated('slug');
         $path = $request->validated('path');
         $share = Share::whereBySlug($slug)->first();
+        if (!$share) {
+            throw ShareFileException::shareWrongPassword();
+        }
 
         if ($path) {
             $files = Share::getFilenamesByPath(
