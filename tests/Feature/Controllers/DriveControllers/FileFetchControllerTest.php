@@ -116,6 +116,20 @@ class FileFetchControllerTest extends BaseFeatureTest
         );
     }
 
+    public function test_index_fails_when_file_is_missing_from_storage()
+    {
+        $this->uploadFile('', 'sample.txt');
+        $file = LocalFile::getByName('sample.txt');
+
+        unlink($file->getPrivatePathNameForFile());
+
+        $response = $this->get(route('drive.fetch-file', ['id' => $file->id]));
+
+        $response->assertRedirect(
+            route('rejected', ['message' => 'Could not find file to send'])
+        );
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

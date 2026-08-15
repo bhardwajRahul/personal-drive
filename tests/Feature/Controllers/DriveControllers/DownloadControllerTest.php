@@ -3,6 +3,9 @@
 namespace Tests\Feature\Controllers\DriveControllers;
 
 use App\Models\LocalFile;
+use App\Exceptions\PersonalDriveExceptions\FetchFileException;
+use App\Services\DownloadService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Tests\Feature\BaseFeatureTest;
 use ZipArchive;
@@ -126,6 +129,18 @@ class DownloadControllerTest extends BaseFeatureTest
     }
 
 
+
+    public function test_create_zip_fails_when_file_disappears(): void
+    {
+        $file = LocalFile::getByName('ace.txt')->firstOrFail();
+
+        unlink($file->getPrivatePathNameForFile());
+
+        $this->expectException(FetchFileException::class);
+        $this->expectExceptionMessage('Could not find file to download');
+
+        app(DownloadService::class)->createZipFile(new Collection([$file]));
+    }
 
     public function test_index_downloads_multiple_files_as_zip(): void
     {

@@ -47,8 +47,14 @@ class FileSaveController extends Controller
         if (!$privatePathFile) {
             return ResponseHelper::json('Could not find file', false);
         }
+        if (!is_file($privatePathFile) || !is_writable($privatePathFile)) {
+            return ResponseHelper::json('Could not save file', false);
+        }
+
         try {
-            file_put_contents($privatePathFile, $content);
+            if (@file_put_contents($privatePathFile, $content) === false) {
+                return ResponseHelper::json('Could not save file', false);
+            }
             $file = new SplFileInfo($privatePathFile);
             $this->localFileStatsService->updateFileStats($localFile, $file);
 

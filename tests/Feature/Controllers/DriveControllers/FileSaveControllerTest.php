@@ -96,6 +96,25 @@ class FileSaveControllerTest extends BaseFeatureTest
         $this->assertEquals('New content', file_get_contents($privatePathFile));
     }
 
+    public function test_update_fails_when_file_cannot_be_written()
+    {
+        $this->uploadFile('', 'note.txt', 1);
+        $file = LocalFile::where('filename', 'note.txt')->first();
+        $path = $file->getPrivatePathNameForFile();
+
+        unlink($path);
+        mkdir($path);
+
+        $response = $this->postSave($file->id, 'New content');
+
+        $response->assertExactJson([
+            'status' => false,
+            'message' => 'Could not save file',
+        ]);
+
+        rmdir($path);
+    }
+
     public function test_update_succeeds_for_empty_file()
     {
         $fileName = 'empty.txt';

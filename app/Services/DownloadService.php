@@ -40,8 +40,8 @@ class DownloadService
 
         foreach ($localFiles as $localFile) {
             $pathName = $localFile->getPrivatePathNameForFile();
-            if (! file_exists($pathName)) {
-                continue;
+            if (!is_readable($pathName)) {
+                throw $this->missingFileException($zip, $outputZipPath);
             }
 
             if (is_dir($pathName)) {
@@ -56,6 +56,10 @@ class DownloadService
                     }
 
                     $filePath = $file->getRealPath();
+                    if ($filePath === false || !is_readable($filePath)) {
+                        throw $this->missingFileException($zip, $outputZipPath);
+                    }
+
                     $relativePath = substr($filePath, strlen(dirname($pathName)) + 1);
 
                     $zip->addFile($filePath, $relativePath);
@@ -69,5 +73,13 @@ class DownloadService
         $zip->close();
 
         return $outputZipPath;
+    }
+
+    private function missingFileException(ZipArchive $zip, string $outputZipPath): FetchFileException
+    {
+        $zip->close();
+        @unlink($outputZipPath);
+
+        return FetchFileException::notFoundDownload();
     }
 }

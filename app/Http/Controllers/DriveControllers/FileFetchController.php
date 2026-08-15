@@ -47,6 +47,10 @@ class FileFetchController extends Controller
         }
         $file = $this->handleHashRequest($request);
         $filePrivatePathName = $file->getPrivatePathNameForFile();
+        if (!is_file($filePrivatePathName) || !is_readable($filePrivatePathName)) {
+            throw FetchFileException::notFoundStream();
+        }
+
         if ($file->file_type === 'text') {
             return response()->stream(
                 function () use ($filePrivatePathName) {
