@@ -200,8 +200,33 @@ class UploadControllerTest extends BaseFeatureTest
         $response = $this->uploadMultipleFiles($testPath, [$fileName3, $fileName4]);
 
         $response->assertSessionHas('status', true);
-        $response->assertSessionHas('message', fn($value) => str_contains($value, 'Conflicts'));
+        $response->assertSessionHas('message', fn($value) => str_contains($value, 'Conflicts: foo/bar cannot overwrite folders'));
         $response->assertSessionHas('message', fn($value) => str_contains($value, 'Files uploaded: 1 out of 2'));
+    }
+
+    public function test_create_upload_conflicts_limit_names()
+    {
+        $testPath = 'some/path';
+        $folders = ['first', 'second', 'third', 'fourth'];
+        foreach ($folders as $folder) {
+            $this->createItem($folder, $testPath, false);
+        }
+
+        $response = $this->post(
+            route('drive.upload'), [
+            '_token' => csrf_token(),
+            'files' => [
+                UploadedFile::fake()->create('first', 100),
+                UploadedFile::fake()->create('second', 100),
+                UploadedFile::fake()->create('third', 100),
+                UploadedFile::fake()->create('fourth', 100),
+            ],
+            'path' => $testPath,
+            ]
+        );
+
+        $response->assertSessionHas('status', false);
+        $response->assertSessionHas('message', 'Some/All Files upload failed (Conflicts: first, second, third cannot overwrite folders (+1 more))');
     }
 
     public function test_create_upload_folder_duplicates_partial()

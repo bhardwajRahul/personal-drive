@@ -43,6 +43,7 @@ class TwoFactorControllerTest extends BaseFeatureTest
         );
     }
 
+
     private function postEnableTwoFactor($code): TestResponse
     {
         $response = $this->post(

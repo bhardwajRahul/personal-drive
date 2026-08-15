@@ -52,13 +52,18 @@ class UploadController extends Controller
         if (!$privatePath) {
             return $this->error('File upload failed. Could not find storage path');
         }
-        [$successfulUploads, $duplicatesDetected, $conflictsDetected] = $this->processFiles(
+        [$successfulUploads, $duplicatesDetected, $conflicts] = $this->processFiles(
             $files,
             $privatePath,
             $publicPath
         );
-        if ($conflictsDetected > 0) {
-            $conflictsMessage = 'Conflicts: ' . $conflictsDetected . ' Files cannot overwrite folders';
+        if ($conflicts) {
+            $conflictsMessage = 'Conflicts: ' . implode(', ', array_slice($conflicts, 0, 3))
+                . ' cannot overwrite folders';
+            $remainingConflicts = count($conflicts) - 3;
+            if ($remainingConflicts > 0) {
+                $conflictsMessage .= ' (+' . $remainingConflicts . ' more)';
+            }
         }
 
         if ($duplicatesDetected > 0) {
@@ -67,15 +72,15 @@ class UploadController extends Controller
                 'duplicate_files_num' => $duplicatesDetected,
             ]);
             $this->localFileStatsService->generateStats($publicPath, $files);
-            return $this->success('Duplicates Detected', ['replaceAbort' => true]);
+            return $this->success('Duplicates Detected' . ($conflicts ? ' (' . $conflictsMessage . ')' : ''), ['replaceAbort' => true]);
         }
 
         if ($successfulUploads > 0) {
             $this->localFileStatsService->generateStats($publicPath, $files);
-            return $this->success('Files uploaded: ' . $successfulUploads . ' out of ' . count($files) . ($conflictsDetected > 0 ? ' (' . $conflictsMessage . ')' : ''));
+            return $this->success('Files uploaded: ' . $successfulUploads . ' out of ' . count($files) . ($conflicts ? ' (' . $conflictsMessage . ')' : ''));
         }
 
-        return $this->error('Some/All Files upload failed' . ($conflictsDetected > 0 ? ' (' . $conflictsMessage . ')' : ''));
+        return $this->error('Some/All Files upload failed' . ($conflicts ? ' (' . $conflictsMessage . ')' : ''));
     }
 
     private function processFiles(array $files, string $privatePath, string $publicPath): array
@@ -83,7 +88,8 @@ class UploadController extends Controller
         //Temp storage in case we need to abort
         $tempStorageDirFull = $this->uploadService->setTempStorageDirAbs();
 
-        $conflictsDetected = $successfulUploads = $duplicatesDetected = 0;
+        $conflicts = [];
+        $successfulUploads = $duplicatesDetected = 0;
         foreach ($files as $file) {
             $fileNameWithUploadedPath = $this->pathService->sanitizeUploadPath($file->getClientOriginalPath());
             $sanitizeFileName = $this->pathService->sanitizeFileName($file->getClientOriginalName());
@@ -107,7 +113,7 @@ class UploadController extends Controller
                     dirname($fileNameWithUploadedPath)
                 )
             ) {
-                $conflictsDetected++;
+                $conflicts[] = $fileNameWithUploadedPath;
             } elseif (file_exists($destinationFullPath) && $tempStorageDirFull) {
                 $duplicatesDetected++;
 
@@ -125,7 +131,7 @@ class UploadController extends Controller
             }
         }
 
-        return [$successfulUploads, $duplicatesDetected, $conflictsDetected];
+        return [$successfulUploads, $duplicatesDetected, $conflicts];
     }
 
     private function uploadToDir(string $destinationDir, mixed $file, string $publicPath): int
