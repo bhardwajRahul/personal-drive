@@ -6,6 +6,7 @@ use App\Exceptions\PersonalDriveExceptions\FileMoveException;
 use App\Exceptions\PersonalDriveExceptions\UploadFileException;
 use App\Models\Setting;
 use Exception;
+use Illuminate\Support\Facades\Cache;
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\Local\LocalFilesystemAdapter;
@@ -40,21 +41,24 @@ class FileOperationsService
         ) {
             throw FileMoveException::invalidDestinationPath();
         }
-        if ($this->directoryExists($dest)) {
+        // One-at-a-time gate per destination: 2 close requests can pass,  second rename() overwrites the first
+        $lock = Cache::lock('pd-move-' . md5($this->basePath . DS . $dest), 10);
+        if (!$lock->get()) {
+            throw FileMoveException::couldNotMove();
+        }
+        if ($this->fileExists($dest) || $this->directoryExists($dest)) {
             throw FileMoveException::directoryExists();
         }
         try {
             $this->filesystem->move($src, $dest);
         } catch (Exception) {
             throw FileMoveException::couldNotMove();
+        } finally {
+            $lock->release();
         }
     }
 
-    /**
-     * True when an absolute path may be written to: either the storage root is
-     * not yet materialized (first-time setup creates it) or the path resolves
-     * inside the storage root.
-     */
+
     private function isPathWithinStorageRoot(string $absolutePath): bool
     {
         if ($this->basePath === '' || !is_dir($this->basePath) || $this->pathService === null) {

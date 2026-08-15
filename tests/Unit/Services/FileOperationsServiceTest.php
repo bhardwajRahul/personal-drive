@@ -140,6 +140,30 @@ class FileOperationsServiceTest extends TestCase
         }
     }
 
+    public function testMoveOntoExistingFileIsRejectedWithoutOverwriting(): void
+    {
+        $root = sys_get_temp_dir() . DS . 'pd_root_' . uniqid();
+        mkdir($root, 0755, true);
+
+        try {
+            file_put_contents($root . DS . 'src.txt', 'payload');
+            file_put_contents($root . DS . 'dest.txt', 'precious');
+            $service = $this->makeServiceWithStoragePath($root);
+
+            try {
+                $service->move('src.txt', 'dest.txt');
+                $this->fail('Expected FileMoveException to be thrown');
+            } catch (FileMoveException $e) {
+                $this->assertStringContainsString('exists', $e->getMessage());
+            }
+
+            $this->assertSame('precious', file_get_contents($root . DS . 'dest.txt'));
+            $this->assertFileExists($root . DS . 'src.txt');
+        } finally {
+            $this->removeDirRecursively($root);
+        }
+    }
+
     public function testMoveIntoSymlinkEscapingStorageRootFailsAndWritesNothingOutside(): void
     {
         if (!function_exists('symlink')) {
