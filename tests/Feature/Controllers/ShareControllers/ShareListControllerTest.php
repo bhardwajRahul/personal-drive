@@ -38,6 +38,7 @@ class ShareListControllerTest extends BaseFeatureTest
             fn($page) => $page
                 ->component('Drive/Shares/AllShares')
                 ->has('shares', count($shares))
+                ->where('totalShares', count($shares))
         );
     }
 

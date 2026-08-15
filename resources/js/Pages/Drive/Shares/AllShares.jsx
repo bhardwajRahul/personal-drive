@@ -5,7 +5,7 @@ import Button from "../Components/Generic/Button.jsx";
 import { DeleteIcon, PauseIcon, PlayIcon } from "lucide-react";
 import CopyShareLinkButton from "@/Pages/Drive/Components/Shares/CopyShareLinkButton.jsx";
 
-export default function AllShares({ shares }) {
+export default function AllShares({ shares, totalShares }) {
     let shareRoot = window.location.hostname + "/shared/";
 
     function handlePause(id) {
@@ -39,7 +39,7 @@ export default function AllShares({ shares }) {
             <Header />
             <div className="p-1 md:p-4 space-y-4 max-w-7xl mx-auto text-gray-300  bg-gray-800 min-h-screen">
                 <h2 className="text-center text-3xl my-6 mb-8 font-semibold sm:text-4xl sm:my-12 sm:mb-32">
-                    All Live Shares
+                    All Live Shares ({totalShares})
                 </h2>
                 <main className="mx-auto max-w-7xl">
                     <AlertBox />
