@@ -51,10 +51,12 @@
 - Files are indexed
 - Dynamically generated thumbnails
 - Upload multiple files or entire folders recursively
+- Upload queue with per-upload progress reporting
 - Select one or all files in a folder
 - Download, delete, share selected files
 - Two layouts: list view and tile view
-- Sort based on size, type, or name
+- Sort by name, date, size, or type; selected sort order is remembered
+- Responsive layout for mobile devices
 - Fast sort, even for thousands of files
 - Breadcrumb navigation
 - Rename functionality
@@ -64,6 +66,7 @@
 - Create new files
 - Markdown supported
 - Move files
+- Favorite files and folders for quick access
 - Config option to disable authentication
 - Config options to run behind a http proxy (reverse proxy)
 - Two Factor Authentication powered by TOTP protocol. Ex: Google Authentication

@@ -2,15 +2,18 @@
 
 ## Not versioned changes
 
-- Bug fixes
+- Upload queue with per-upload progress reporting
+- Favorites for files and folders, with a dedicated Favorites menu
+- Sort by modification date, with selected sort preferences remembered
+- Lazy-loaded image, text, and PDF viewers
+- Reliability improvements for uploads, moves, downloads, and storage resync
 - Html viewer
-- Mobile Layout fixes and improvements
-- Other UI improvements
+- Improved responsive mobile layout and drive controls
 - Audio player
 - Audiobook features: save position automatically, multiple rewind buttons
 - Stream line settings for autoplaying media
 - Improve setup.sh for better permission handling
-- Security: Guests could view admin files. I added robust checks on several endpoints.
+- Security hardening: storage-path and symlink protection, safer file responses, sanitized text content, rate-limited two-factor attempts, and stronger share-access checks
 - Support running behind reverse proxies by adding configurable/optional trusted proxies
 - Support no auth mode
 - Two Factor Authentication powered by TOTP protocol. Ex: Google Authenticator
