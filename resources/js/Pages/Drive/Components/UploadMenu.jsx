@@ -35,7 +35,7 @@ const UploadMenu = ({ path, setStatusMessage, files }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const isFile = useRef(false);
 
-    function uploadFiles(selectedFileForUpload) {
+    function uploadFiles(selectedFileForUpload, onProgress) {
         setStatusMessage("Uploading...");
         const formData = new FormData();
 
@@ -50,6 +50,7 @@ const UploadMenu = ({ path, setStatusMessage, files }) => {
 
         router.post("/upload", formData, {
             only: ["files", "flash"],
+            onProgress,
             onSuccess: (page) => {
                 setUploadedFiles(selectedFileForUpload);
 

@@ -33,3 +33,7 @@ audio::-webkit-media-controls-panel {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+.upload-progress::-webkit-progress-value {
+    background: #3b82f6;
+}

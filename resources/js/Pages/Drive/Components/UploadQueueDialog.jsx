@@ -1,23 +1,38 @@
+const getUploadStatus = (item) => {
+    if (item.status === "queued") return "Queued";
+    if (item.status === "processing") return "Processing...";
+    if (item.progress == null) return "Uploading...";
+
+    return `${item.progress}%`;
+};
+
 const UploadQueueDialog = ({ items }) => {
     if (!items.length) return null;
 
     return (
         <aside
-            role="status"
             aria-live="polite"
-            className="fixed bottom-4 right-4 z-50 w-80 rounded bg-gray-800 p-4 text-sm text-gray-100 shadow-lg"
+            className="fixed bottom-4 right-4 z-50 w-80 rounded bg-gray-800 p-2 text-sm text-gray-100 shadow-lg text-gray-300"
         >
-            <h2 className="mb-2 font-semibold">Uploads queued</h2>
+            <h2 className="mb-2 font-semibold text-gray-400">Uploads</h2>
 
             <ul className="flex flex-col gap-2">
                 {items.map((item) => (
-                    <li key={item.id} className="flex justify-between gap-3">
-                        <span className="truncate">{item.name}</span>
-                        <span className="shrink-0 text-gray-300">
-                            {item.status === "uploading"
-                                ? "Uploading"
-                                : "Queued"}
-                        </span>
+                    <li key={item.id} className="flex flex-col gap-1">
+                        <div className="flex justify-between gap-3 ">
+                            <span className="truncate">{item.name}</span>
+                            <span className="shrink-0 text-green-400 text-xs">
+                                {getUploadStatus(item)}
+                            </span>
+                        </div>
+                        {item.status !== "queued" && (
+                            <progress
+                                aria-label={`${item.name} upload progress`}
+                                className="h-0.5 w-full upload-progress"
+                                max="100"
+                                value={item.progress ?? 0}
+                            />
+                        )}
                     </li>
                 ))}
             </ul>

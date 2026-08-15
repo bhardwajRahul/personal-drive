@@ -17,14 +17,19 @@ const useUploadQueue = () => {
 
     const save = (nextItems) => {
         queueRef.current = nextItems;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextItems));
+        localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(nextItems, (key, value) =>
+                key === "progress" ? undefined : value,
+            ),
+        );
         setItems(nextItems);
     };
 
-    const update = (id, status) => {
+    const update = (id, changes) => {
         save(
             queueRef.current.map((item) =>
-                item.id === id ? { ...item, status } : item,
+                item.id === id ? { ...item, ...changes } : item,
             ),
         );
     };
@@ -52,8 +57,18 @@ const useUploadQueue = () => {
                 () =>
                     new Promise((done) => {
                         doneRef.current = done;
-                        update(item.id, "uploading");
-                        upload(files);
+                        update(item.id, { status: "uploading" });
+                        upload(files, (progress) => {
+                            if (progress.percentage == null) return;
+
+                            update(item.id, {
+                                progress: Math.round(progress.percentage),
+                                status:
+                                    progress.percentage >= 100
+                                        ? "processing"
+                                        : "uploading",
+                            });
+                        });
                     }),
             )
             .finally(() => {
@@ -61,6 +76,20 @@ const useUploadQueue = () => {
                 remove(item.id);
             });
     };
+
+    useEffect(() => {
+        void navigator.locks.query().then(({ held }) => {
+            if (
+                held.some(
+                    (lock) => lock.name === "personal-drive-upload",
+                )
+            ) {
+                return;
+            }
+
+            save([]);
+        });
+    }, []);
 
     useEffect(() => {
         const sync = (event) => {
