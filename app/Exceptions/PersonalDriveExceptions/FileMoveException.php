@@ -23,6 +23,11 @@ class FileMoveException extends PersonalDriveException
         return new self('Move stopped. An item with the same name already exists.');
     }
 
+    public static function cannotMoveIntoItself(): self
+    {
+        return new self('Cannot move a folder into its own subfolder.');
+    }
+
     public static function directoryExists(): self
     {
         return new self('Could not move: Same name Directory exists');

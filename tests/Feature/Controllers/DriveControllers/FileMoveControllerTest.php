@@ -209,6 +209,23 @@ class FileMoveControllerTest extends BaseFeatureTest
         $this->assertSame('original content', $download->streamedContent());
     }
 
+    public function test_moving_folder_into_its_own_subfolder_is_rejected_before_any_move(): void
+    {
+        $this->postUpload([
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('photos/2024/jan.txt', 'jan'),
+            \Illuminate\Http\UploadedFile::fake()->createWithContent('photos/readme.txt', 'readme'),
+        ], '');
+        $photos = LocalFile::where('filename', 'photos')->where('public_path', '')->firstOrFail();
+
+        $response = $this->postMoveFiles([$photos->id], 'photos/2024');
+
+        $response->assertSessionHas('status', false);
+        $response->assertSessionHas('message', 'Cannot move a folder into its own subfolder.');
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . '/photos/2024/jan.txt');
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . '/photos/readme.txt');
+        $this->assertDatabaseHas('local_files', ['id' => $photos->id, 'public_path' => '']);
+    }
+
     public function test_move_missing_file_fails_without_removing_its_index_record(): void
     {
         $this->setupUploadBeforeMove();

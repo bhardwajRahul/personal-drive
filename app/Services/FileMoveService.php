@@ -39,7 +39,11 @@ class FileMoveService
         }
         $destinations = [];
         foreach ($localFiles as $localFile) {
+            $source = $localFile->getFullPathFromContentRoot();
             $destination = $localFile->getFullPathFromContentRoot('', $desPublicPath);
+            if ($localFile->isValidDir() && str_starts_with($destination, rtrim($source, DS) . DS)) {
+                throw FileMoveException::cannotMoveIntoItself();
+            }
             if (isset($destinations[$destination])
                 || $this->fileOperationsService->fileExists($destination)
                 || $this->fileOperationsService->directoryExists($destination)
