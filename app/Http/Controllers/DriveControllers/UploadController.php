@@ -66,12 +66,12 @@ class UploadController extends Controller
                 'new_file_copied_num' => $successfulUploads,
                 'duplicate_files_num' => $duplicatesDetected,
             ]);
-            $this->localFileStatsService->generateStats($publicPath);
+            $this->localFileStatsService->generateStats($publicPath, $files);
             return $this->success('Duplicates Detected', ['replaceAbort' => true]);
         }
 
         if ($successfulUploads > 0) {
-            $this->localFileStatsService->generateStats($publicPath);
+            $this->localFileStatsService->generateStats($publicPath, $files);
             return $this->success('Files uploaded: ' . $successfulUploads . ' out of ' . count($files) . ($conflictsDetected > 0 ? ' (' . $conflictsMessage . ')' : ''));
         }
 

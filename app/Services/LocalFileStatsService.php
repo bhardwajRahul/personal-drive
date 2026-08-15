@@ -77,22 +77,41 @@ class LocalFileStatsService
         return $fileType;
     }
 
-    public function generateStats(string $path = ''): int
+    public function generateStats(string $path = '', array $files = []): int
     {
         $privatePath = $this->pathService->genPrivatePathFromPublic($path);
         if (!$privatePath) {
             return 0;
         }
 
-        return $this->populateLocalFileWithStats($privatePath);
+        return $this->populateLocalFileWithStats($privatePath, $files);
     }
 
-    private function populateLocalFileWithStats(string $privatePath): int
+    private function populateLocalFileWithStats(string $privatePath, array $files = []): int
     {
+        $destinationFullPaths = [];
         $batchSize = 100;
-        $items = collect($this->createFileIterator($privatePath))
-            ->map(fn($item) => $this->getFileItemDetails($item));
-        return $items->chunk($batchSize)->sum(fn($chunk) => LocalFile::insertRows($chunk->all()));
+        foreach ($files as $file) {
+            $fileNameWithUploadedPath = $this->pathService->sanitizeUploadPath($file->getClientOriginalPath());
+            $parts = explode('/', $fileNameWithUploadedPath);
+            $folderPath = '';
+            for ($i = 0; $i < count($parts) - 1; $i++) {
+                $folderPath .= $parts[$i] . '/';
+                $destinationFullPaths[] = realpath($privatePath . $folderPath);
+            }
+            $destinationFullPaths[] = realpath($privatePath . $fileNameWithUploadedPath);
+        }
+
+        $items = collect($this->createFileIterator($privatePath));
+        if ($destinationFullPaths) {
+            $items = $items->filter(function ($item) use ($destinationFullPaths) {
+                return in_array($item->getPathname(), $destinationFullPaths);
+            });
+        }
+        return $items
+            ->map(fn($item) => $this->getFileItemDetails($item))
+            ->chunk($batchSize)
+            ->sum(fn($chunk) => LocalFile::insertRows($chunk->all()));
     }
 
     private function createFileIterator(string $path): RecursiveIteratorIterator
