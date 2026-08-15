@@ -23,8 +23,6 @@ class DownloadControllerTest extends BaseFeatureTest
 
     protected function tearDown(): void
     {
-        // ignore_user_abort is process-global in the test run; restore it so
-        // the abort-safety assertion doesn't leak into sibling tests.
         ignore_user_abort(false);
         parent::tearDown();
     }

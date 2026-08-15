@@ -58,8 +58,6 @@ class DownloadController extends Controller
     public function downloadValidFiles(Collection $localFiles): BinaryFileResponse|JsonResponse
     {
         try {
-            // Client abort kills the request before deleteFileAfterSend() runs;
-            // keep executing so the temp zip is always cleaned up.
             ignore_user_abort(true);
 
             $downloadFilePath = $this->downloadService->generateDownloadPath($localFiles);
