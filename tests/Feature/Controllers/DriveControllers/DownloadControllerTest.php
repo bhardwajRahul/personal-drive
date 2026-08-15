@@ -21,6 +21,14 @@ class DownloadControllerTest extends BaseFeatureTest
         $this->uploadMultipleFiles('');
     }
 
+    protected function tearDown(): void
+    {
+        // ignore_user_abort is process-global in the test run; restore it so
+        // the abort-safety assertion doesn't leak into sibling tests.
+        ignore_user_abort(false);
+        parent::tearDown();
+    }
+
     public function test_index_downloads_single_file_successfully(): void
     {
         $firstFile = LocalFile::getByName('ace.txt')->firstOrFail();
@@ -124,7 +132,6 @@ class DownloadControllerTest extends BaseFeatureTest
     public function test_index_downloads_multiple_files_as_zip(): void
     {
         $fileIds = LocalFile::all()->slice(0, 2)->pluck('id')->toArray();
-
         $response = $this->post(
             '/download-files', [
                 '_token' => csrf_token(),
@@ -134,6 +141,22 @@ class DownloadControllerTest extends BaseFeatureTest
 
         $response->assertStatus(200);
         $this->assertStringContainsString('.zip', $response->headers->get('Content-Disposition'));
+    }
+
+    public function test_zip_download_survives_abort_and_leaves_no_temp_zip_behind(): void
+    {
+        $fileIds = LocalFile::all()->slice(0, 2)->pluck('id')->toArray();
+        $before = count(glob('/tmp/personal_drive_*.zip'));
+
+        $response = $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => $fileIds,
+        ]);
+
+        $response->assertOk();
+        $response->streamedContent();
+        $this->assertSame(1, ignore_user_abort());
+        $this->assertSame($before, count(glob('/tmp/personal_drive_*.zip')));
     }
 
     public function test_index_zips_a_selected_directory_and_explicit_descendant_only_once(): void

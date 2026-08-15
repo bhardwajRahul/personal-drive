@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Exceptions\PersonalDriveExceptions\FetchFileException;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Str;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ZipArchive;
@@ -31,7 +30,7 @@ class DownloadService
     public function createZipFile(Collection $localFiles): string
     {
         $outputZipPath = '/tmp'.DS.
-            'personal_drive_'.Str::random(4).'_'.now()->format('Y_m_d').'.zip';
+            'personal_drive_'.uniqid('', true).'_'.now()->format('Y_m_d').'.zip';
 
         $zip = new ZipArchive;
 
