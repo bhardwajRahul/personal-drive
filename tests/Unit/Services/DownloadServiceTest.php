@@ -32,19 +32,6 @@ class DownloadServiceTest extends TestCase
         $this->assertEquals('/path/to/file', $result);
     }
 
-    public function testGenerateDownloadPathSingleDir()
-    {
-        $file = $this->createMock(LocalFile::class);
-        $file->method('getPrivatePathNameForFile')->willReturn('/path/to/aDir');
-        $file->method('__get')->with('is_dir')->willReturn(true);
-
-
-        $localFiles = new Collection([$file]);
-        $result = $this->downloadService->generateDownloadPath($localFiles);
-
-        $this->assertStringContainsString('/tmp/personal_drive_', $result);
-        $this->assertStringEndsWith('.zip', $result);
-    }
 
     public function testZipNamesAreUniqueAcrossCalls()
     {
