@@ -45,8 +45,17 @@ class DownloadController extends Controller
         if ($localFiles->isEmpty()) {
             return ResponseHelper::json('Could not find files to download', false);
         }
-        if ($localFiles->contains(fn (LocalFile $file) => !file_exists($file->getPrivatePathNameForFile()))) {
-            return ResponseHelper::json('One or more selected files are unavailable', false, 404);
+        $missingIds = array_values(array_diff(
+            $fileKeyArray,
+            $localFiles->filter(fn (LocalFile $file) => file_exists($file->getPrivatePathNameForFile()))->pluck('id')->all()
+        ));
+        if ($missingIds) {
+            $message = 'Could not find: ' . implode(', ', array_slice($missingIds, 0, 3));
+            $remaining = count($missingIds) - 3;
+            if ($remaining > 0) {
+                $message .= ' (+' . $remaining . ' more)';
+            }
+            return ResponseHelper::json($message, false, 404);
         }
 
         if (Session::get('share_id') && !$this->guestVerified($fileKeyArray, $this->shareAuthorizationService)) {

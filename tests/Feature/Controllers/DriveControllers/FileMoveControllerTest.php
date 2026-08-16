@@ -39,7 +39,7 @@ class FileMoveControllerTest extends BaseFeatureTest
 
         $response = $this->postMoveFiles([$firstFile->id], 'foo');
         $response->assertSessionHas('status', false);
-        $response->assertSessionHas('message', 'Move stopped. An item with the same name already exists.');
+        $response->assertSessionHas('message', 'Move cancelled. Conflicts: bar already exist at destination');
         Storage::disk('local')->assertExists(CONTENT_SUBDIR . $testPath . '/bar/1.txt');
         Storage::disk('local')->assertMissing(CONTENT_SUBDIR . $testPath . 'foo/bar/1.txt');
     }
@@ -57,7 +57,7 @@ class FileMoveControllerTest extends BaseFeatureTest
         $response = $this->postMoveFiles([$movable->id, $collision->id], 'destination');
 
         $response->assertSessionHas('status', false);
-        $response->assertSessionHas('message', 'Move stopped. An item with the same name already exists.');
+        $response->assertSessionHas('message', 'Move cancelled. Conflicts: collision.txt already exist at destination');
         $disk = Storage::disk('local');
         $this->assertSame('move me', $disk->get(CONTENT_SUBDIR . '/source/a.txt'));
         $this->assertSame('source version', $disk->get(CONTENT_SUBDIR . '/source/collision.txt'));
@@ -80,7 +80,7 @@ class FileMoveControllerTest extends BaseFeatureTest
         $response = $this->postMoveFiles([$movable->id, $collision->id], 'destination');
 
         $response->assertSessionHas('status', false);
-        $response->assertSessionHas('message', 'Move stopped. An item with the same name already exists.');
+        $response->assertSessionHas('message', 'Move cancelled. Conflicts: shared already exist at destination');
         $disk = Storage::disk('local');
         $this->assertSame('move me', $disk->get(CONTENT_SUBDIR . '/source/a.txt'));
         $this->assertSame('source file', $disk->get(CONTENT_SUBDIR . '/source/shared/source-only.txt'));
@@ -107,7 +107,7 @@ class FileMoveControllerTest extends BaseFeatureTest
         $response = $this->postMoveFiles([$first->id, $second->id], 'destination');
 
         $response->assertSessionHas('status', false);
-        $response->assertSessionHas('message', 'Move stopped. An item with the same name already exists.');
+        $response->assertSessionHas('message', 'Move cancelled. Conflicts: same.txt already exist at destination');
         $disk = Storage::disk('local');
         $this->assertSame('first version', $disk->get(CONTENT_SUBDIR . '/first/same.txt'));
         $this->assertSame('second version', $disk->get(CONTENT_SUBDIR . '/second/same.txt'));

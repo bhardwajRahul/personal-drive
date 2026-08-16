@@ -113,6 +113,23 @@ class DownloadControllerTest extends BaseFeatureTest
         );
     }
 
+    public function test_index_rejects_batch_when_any_requested_id_is_missing(): void
+    {
+        $file = LocalFile::getByName('ace.txt')->firstOrFail();
+
+        $response = $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$file->id, '01kd2195rfbxe1pbavxwefk9wt'],
+        ]);
+
+        $response->assertNotFound();
+        $response->assertJson(['status' => false]);
+        $response->assertJsonPath(
+            'message',
+            fn ($message) => str_contains($message, '01kd2195rfbxe1pbavxwefk9wt')
+        );
+    }
+
     public function test_index_does_not_expose_download_preparation_exception_messages(): void
     {
         $file = LocalFile::getByName('ace.txt')->firstOrFail();
@@ -147,6 +164,10 @@ class DownloadControllerTest extends BaseFeatureTest
 
         $response->assertNotFound();
         $response->assertJson(['status' => false]);
+        $response->assertJsonPath(
+            'message',
+            fn ($message) => str_contains($message, $file->id)
+        );
         $this->assertDatabaseHas('local_files', ['id' => $file->id]);
     }
 

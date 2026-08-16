@@ -38,6 +38,7 @@ class FileMoveService
             throw FileMoveException::invalidDestinationPath();
         }
         $destinations = [];
+        $conflicts = [];
         foreach ($localFiles as $localFile) {
             $source = $localFile->getFullPathFromContentRoot();
             $destination = $localFile->getFullPathFromContentRoot('', $desPublicPath);
@@ -48,9 +49,19 @@ class FileMoveService
                 || $this->fileOperationsService->fileExists($destination)
                 || $this->fileOperationsService->directoryExists($destination)
             ) {
-                throw FileMoveException::destinationExists();
+                $conflicts[] = $localFile->filename;
+            } else {
+                $destinations[$destination] = true;
             }
-            $destinations[$destination] = true;
+        }
+        if ($conflicts) {
+            $message = 'Move cancelled. Conflicts: ' . implode(', ', array_slice($conflicts, 0, 3))
+                . ' already exist at destination';
+            $remaining = count($conflicts) - 3;
+            if ($remaining > 0) {
+                $message .= ' (+' . $remaining . ' more)';
+            }
+            throw new FileMoveException($message);
         }
 
         foreach ($localFiles as $localFile) {
