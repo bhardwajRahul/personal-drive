@@ -16,6 +16,8 @@ use App\Traits\FlashMessages;
 use Error;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Redirect;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
+
 
 class UploadController extends Controller
 {
@@ -154,6 +156,8 @@ class UploadController extends Controller
                 chmod($destinationDir . DS . $sanitizeFileName, 0640);
                 $successfulUploads++;
             }
+        } catch (FileException) {
+            throw UploadFileException::pathTooLong();
         } catch (Error) {
             throw UploadFileException::outOfMemory();
         }

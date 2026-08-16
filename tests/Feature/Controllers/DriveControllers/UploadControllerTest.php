@@ -355,6 +355,24 @@ class UploadControllerTest extends BaseFeatureTest
         $response->assertSessionMissing('duplicate_files_num');
     }
 
+    public function test_upload_with_too_long_filename_shows_friendly_error(): void
+    {
+        $response = $this->post(
+            route('drive.upload'),
+            [
+                '_token' => csrf_token(),
+                'files' => [UploadedFile::fake()->create(str_repeat('a', 256) . '.txt', 1)],
+                'path' => '',
+            ]
+        );
+
+        $response->assertSessionHas('status', false);
+        $response->assertSessionHas(
+            'message',
+            'Upload path is too long. Shorten folder names or upload into a higher-level folder.'
+        );
+    }
+
     public function mockFileOperations()
     {
         $fileOptsMock = Mockery::mock(FileOperationsService::class)->makePartial();

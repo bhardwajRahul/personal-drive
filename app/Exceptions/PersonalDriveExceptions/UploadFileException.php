@@ -24,6 +24,11 @@ class UploadFileException extends PersonalDriveException
         return new self('The path resolves outside the storage root');
     }
 
+    public static function pathTooLong(): UploadFileException
+    {
+        return new self('Upload path is too long. Shorten folder names or upload into a higher-level folder.');
+    }
+
     public static function fileExists(): self
     {
         return new self('File already exists');
