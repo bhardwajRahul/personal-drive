@@ -7,45 +7,27 @@ use Tests\TestCase;
 
 class TwoFactorExceptionTest extends TestCase
 {
-    public function test_could_not_validate_creates_exception_with_message()
+    public function test_could_not_validate_creates_exception_with_stable_message(): void
     {
-        $message = 'Invalid code provided';
-        $exception = TwoFactorException::couldNotValidate($message);
+        $exception = TwoFactorException::couldNotValidate();
 
         $this->assertInstanceOf(TwoFactorException::class, $exception);
-        $this->assertEquals('Error: ' . $message, $exception->getMessage());
+        $this->assertSame('Could not validate two-factor code', $exception->getMessage());
     }
 
-    public function test_could_not_validate_with_empty_message()
+    public function test_exception_extends_personal_drive_exception(): void
     {
-        $exception = TwoFactorException::couldNotValidate('');
-
-        $this->assertInstanceOf(TwoFactorException::class, $exception);
-        $this->assertEquals('Error: ', $exception->getMessage());
-    }
-
-    public function test_could_not_validate_with_special_characters()
-    {
-        $message = 'Code "123456" expired at 12:30';
-        $exception = TwoFactorException::couldNotValidate($message);
-
-        $this->assertInstanceOf(TwoFactorException::class, $exception);
-        $this->assertEquals('Error: ' . $message, $exception->getMessage());
-    }
-
-    public function test_exception_extends_personal_drive_exception()
-    {
-        $exception = TwoFactorException::couldNotValidate('test');
+        $exception = TwoFactorException::couldNotValidate();
 
         $this->assertInstanceOf(\App\Exceptions\PersonalDriveExceptions\PersonalDriveException::class, $exception);
         $this->assertInstanceOf(\Exception::class, $exception);
     }
 
-    public function test_exception_can_be_thrown_and_caught()
+    public function test_exception_can_be_thrown_and_caught(): void
     {
         $this->expectException(TwoFactorException::class);
-        $this->expectExceptionMessage('Error: test message');
+        $this->expectExceptionMessage('Could not validate two-factor code');
 
-        throw TwoFactorException::couldNotValidate('test message');
+        throw TwoFactorException::couldNotValidate();
     }
 }

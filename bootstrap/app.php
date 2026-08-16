@@ -13,6 +13,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\ViewException;
 
@@ -86,7 +87,8 @@ return Application::configure(basePath: dirname(__DIR__))
                 return redirect()->back()->withErrors($e->errors());
             }
             if ($e instanceof Exception && ! $e instanceof AuthenticationException) {
-                session()->flash('message', 'Something went wrong!'.$e->getMessage());
+                Log::error('Unhandled application exception', ['exception' => $e]);
+                session()->flash('message', 'Something went wrong');
                 session()->flash('status', false);
             }
             if (str_contains($e->getMessage(), 'readonly database') || str_contains($e->getMessage(), 'open database')) {

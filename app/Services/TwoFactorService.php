@@ -6,6 +6,7 @@ use App\Exceptions\PersonalDriveExceptions\TwoFactorException;
 use App\Models\Setting;
 use Exception;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use PragmaRX\Google2FA\Exceptions\IncompatibleWithGoogleAuthenticatorException;
 use PragmaRX\Google2FA\Exceptions\InvalidCharactersException;
 use PragmaRX\Google2FA\Exceptions\SecretKeyTooShortException;
@@ -29,7 +30,9 @@ class TwoFactorService
         try {
             return $this->totp->verify($code, $secret) === true ;
         } catch (Exception $e) {
-            throw TwoFactorException::couldNotValidate($e->getMessage());
+            Log::error('Failed to validate two-factor code', ['exception' => $e]);
+
+            throw TwoFactorException::couldNotValidate();
         }
     }
     public function generateTwoFactorSecret(): string

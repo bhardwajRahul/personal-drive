@@ -4,9 +4,9 @@ namespace App\Exceptions\PersonalDriveExceptions;
 
 class TwoFactorException extends PersonalDriveException
 {
-    public static function couldNotValidate(string $msg): TwoFactorException
+    public static function couldNotValidate(): TwoFactorException
     {
-        return new self('Error: '. $msg);
+        return new self('Could not validate two-factor code');
     }
 
 }

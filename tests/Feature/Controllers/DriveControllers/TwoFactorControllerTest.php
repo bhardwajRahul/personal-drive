@@ -2,13 +2,17 @@
 
 namespace Tests\Feature\Controllers\DriveControllers;
 
+use App\Exceptions\PersonalDriveExceptions\TwoFactorException;
 use App\Http\Middleware\HandleGuestShareMiddleware;
+use App\Models\Setting;
 use App\Models\User;
+use App\Services\TwoFactorService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Testing\TestResponse;
 use Mockery;
 use PragmaRX\Google2FAQRCode\Google2FA;
+use RuntimeException;
 use Tests\Feature\BaseFeatureTest;
 use const true;
 
@@ -81,6 +85,24 @@ class TwoFactorControllerTest extends BaseFeatureTest
         $response = $this->postEnableTwoFactor('000000');
         $response->assertSessionHas('status', false);
         $response->assertSessionHas('message', 'Incorrect OTP. Please try again');
+    }
+
+    public function test_two_factor_validation_does_not_expose_verification_exception_message(): void
+    {
+        $google2FA = Mockery::mock(Google2FA::class);
+        $google2FA
+            ->shouldReceive('verify')
+            ->once()
+            ->with('123456', 'internal-secret')
+            ->andThrow(new RuntimeException('Secret at /srv/private/two-factor.key is unreadable'));
+        $service = new TwoFactorService(Mockery::mock(Setting::class), $google2FA);
+
+        try {
+            $service->twoFactorCodeCheck('123456', 'internal-secret');
+            $this->fail('Expected two-factor validation to throw');
+        } catch (TwoFactorException $exception) {
+            $this->assertSame('Could not validate two-factor code', $exception->getMessage());
+        }
     }
 
     public function test_enable_two_factor_auth_enable()

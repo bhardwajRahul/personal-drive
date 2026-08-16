@@ -48,7 +48,7 @@ class AdminConfigServiceTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_update_storage_path_catch_returns_error_with_exception_message(): void
+    public function test_update_storage_path_catch_returns_stable_error_message(): void
     {
         $exception = new \Exception('disk failure');
 
@@ -60,7 +60,20 @@ class AdminConfigServiceTest extends TestCase
         $result = $this->adminConfigService->updateStoragePath('/tmp/storage');
 
         $this->assertFalse($result['status']);
-        $this->assertSame('An unexpected error occurred: disk failure', $result['message']);
+        $this->assertSame('Unable to update storage path', $result['message']);
+    }
+
+    public function test_update_storage_path_does_not_expose_dependency_exception_message(): void
+    {
+        $this->setting
+            ->shouldReceive('updateStoragePath')
+            ->once()
+            ->andThrow(new \RuntimeException('Cannot access /srv/private/storage'));
+
+        $result = $this->adminConfigService->updateStoragePath('/tmp/storage');
+
+        $this->assertFalse($result['status']);
+        $this->assertSame('Unable to update storage path', $result['message']);
     }
 
     public function test_update_storage_path_catch_returns_false_status(): void
@@ -77,19 +90,4 @@ class AdminConfigServiceTest extends TestCase
         $this->assertFalse($result['status']);
     }
 
-    public function test_update_storage_path_catch_concat_includes_prefix_and_message(): void
-    {
-        $this->setting
-            ->shouldReceive('updateStoragePath')
-            ->once()
-            ->andThrow(new \Exception('specific detail'));
-
-        $result = $this->adminConfigService->updateStoragePath('/tmp/storage');
-
-        $message = $result['message'];
-        $this->assertStringContainsString('An unexpected error occurred: ', $message);
-        $this->assertStringContainsString('specific detail', $message);
-        $this->assertStringStartsWith('An unexpected error occurred: ', $message);
-        $this->assertStringEndsWith('specific detail', $message);
-    }
 }

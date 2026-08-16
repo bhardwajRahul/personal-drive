@@ -14,6 +14,7 @@ use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -72,7 +73,9 @@ class DownloadController extends Controller
             );
             return $this->downloadService->isSingleFile($localFiles) ? $response : $response->deleteFileAfterSend();
         } catch (Exception $e) {
-            return ResponseHelper::json($e->getMessage(), false);
+            Log::error('Failed to prepare download', ['exception' => $e]);
+
+            return ResponseHelper::json('Could not prepare download', false);
         }
     }
 }

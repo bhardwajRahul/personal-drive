@@ -10,6 +10,7 @@ use App\Services\DownloadService;
 use App\Services\PathService;
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use SplFileInfo;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use App\Http\Controllers\Controller;
@@ -60,7 +61,9 @@ class FileSaveController extends Controller
 
             return ResponseHelper::json('File saved successfully');
         } catch (Exception $e) {
-            return ResponseHelper::json($e->getMessage(), false);
+            Log::error('Failed to save file', ['exception' => $e, 'file_id' => $id]);
+
+            return ResponseHelper::json('Could not save file', false);
         }
     }
 }

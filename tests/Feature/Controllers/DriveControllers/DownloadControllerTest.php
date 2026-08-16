@@ -7,6 +7,7 @@ use App\Exceptions\PersonalDriveExceptions\FetchFileException;
 use App\Services\DownloadService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
+use RuntimeException;
 use Tests\Feature\BaseFeatureTest;
 use ZipArchive;
 
@@ -111,6 +112,27 @@ class DownloadControllerTest extends BaseFeatureTest
             ]
         );
     }
+
+    public function test_index_does_not_expose_download_preparation_exception_messages(): void
+    {
+        $file = LocalFile::getByName('ace.txt')->firstOrFail();
+
+        $this->mock(DownloadService::class)
+            ->shouldReceive('generateDownloadPath')
+            ->once()
+            ->andThrow(new RuntimeException('Unable to read /srv/private/download-source.txt'));
+
+        $response = $this->post('/download-files', [
+            '_token' => csrf_token(),
+            'fileList' => [$file->id],
+        ]);
+
+        $response->assertExactJson([
+            'status' => false,
+            'message' => 'Could not prepare download',
+        ]);
+    }
+
     public function test_index_returns_not_found_when_file_is_missing_from_storage(): void
     {
         $file = LocalFile::getByName('ace.txt')->firstOrFail();

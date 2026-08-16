@@ -3,10 +3,12 @@
 namespace Tests\Feature\Controllers\DriveControllers;
 
 use App\Models\LocalFile;
+use App\Services\LocalFileStatsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use RuntimeException;
 use Tests\Feature\BaseFeatureTest;
 
 class FileSaveControllerTest extends BaseFeatureTest
@@ -113,6 +115,24 @@ class FileSaveControllerTest extends BaseFeatureTest
         ]);
 
         rmdir($path);
+    }
+
+    public function test_update_does_not_expose_internal_exception_messages(): void
+    {
+        $this->uploadFile('', 'note.txt', 1);
+        $file = LocalFile::where('filename', 'note.txt')->firstOrFail();
+
+        $this->mock(LocalFileStatsService::class)
+            ->shouldReceive('updateFileStats')
+            ->once()
+            ->andThrow(new RuntimeException('Unable to update stats for /srv/private/storage/note.txt'));
+
+        $response = $this->postSave($file->id, 'New content');
+
+        $response->assertExactJson([
+            'status' => false,
+            'message' => 'Could not save file',
+        ]);
     }
 
     public function test_update_succeeds_for_empty_file()

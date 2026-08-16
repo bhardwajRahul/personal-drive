@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Setting;
 use Exception;
+use Illuminate\Support\Facades\Log;
 use PragmaRX\Google2FAQRCode\Google2FA;
 
 class AdminConfigService
@@ -42,7 +43,9 @@ class AdminConfigService
 
             return ['status' => true, 'message' => 'Storage path updated successfully'];
         } catch (Exception $e) {
-            return ['status' => false, 'message' => 'An unexpected error occurred: ' . $e->getMessage()];
+            Log::error('Failed to update storage path', ['exception' => $e]);
+
+            return ['status' => false, 'message' => 'Unable to update storage path'];
         }
     }
 
