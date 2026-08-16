@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function useLocalStorageBool(key, defaultValue = true) {
     const [value, setValue] = useState(() => {
         const saved = localStorage.getItem(key);
         return saved !== null ? JSON.parse(saved) : defaultValue;
     });
+
+    useEffect(() => {
+        localStorage.setItem(key, JSON.stringify(value));
+    }, [key, value]);
 
     return [value, setValue];
 }

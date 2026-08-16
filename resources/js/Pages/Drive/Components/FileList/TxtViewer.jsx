@@ -4,6 +4,7 @@ import { Marked } from "marked";
 import { markedHighlight } from "marked-highlight";
 import hljs from "highlight.js";
 import { sanitizeHtml } from "../../../../lib/sanitizeHtml.js";
+import { useLocalStorageBool } from "@/Pages/Drive/Hooks/useLocalStorageBool.jsx";
 import "highlight.js/styles/github-dark.css"; // Or any other theme you prefer
 
 const TxtViewer = ({
@@ -21,6 +22,11 @@ const TxtViewer = ({
     const [savedMessage, setSavedMessage] = useState("");
     const textareaRef = useRef(null);
     const editedContentRef = useRef("");
+    const [showEditHint, setShowEditHint] = useState(false);
+    const [hasSeenEditHint, setHasSeenEditHint] = useLocalStorageBool(
+        "txt_edit_hint",
+        false,
+    );
 
     const marked = new Marked(
         markedHighlight({
@@ -87,6 +93,11 @@ const TxtViewer = ({
     };
 
     const discardChanges = () => {
+        if (editedContent !== content) {
+            if (!window.confirm("Unsaved changes will be lost. Show preview?")) {
+                return;
+            }
+        }
         setEditedContent(content);
         isEditingRef.current = false;
         setIsInEditMode(false);
@@ -107,6 +118,14 @@ const TxtViewer = ({
     useEffect(() => {
         editedContentRef.current = editedContent;
     }, [editedContent]);
+
+    useEffect(() => {
+        if (!isAdmin || hasSeenEditHint) {
+            return;
+        }
+        setShowEditHint(true);
+        setHasSeenEditHint(true);
+    }, [isAdmin, hasSeenEditHint, setHasSeenEditHint]);
 
     const handleKeyDown = useCallback(
         (e) => {
@@ -142,7 +161,7 @@ const TxtViewer = ({
                 <div
                     className={`prose prose-invert w-[90vw] md:w-[70vw] ${isAdmin ? "cursor-pointer" : ""}`}
                     dangerouslySetInnerHTML={{
-                        __html: sanitizeHtml(marked.parse(content || "Click to edit..")),
+                        __html: sanitizeHtml(marked.parse(content || "Empty File")),
                     }}
                     onClick={startEditing}
                 />
@@ -151,8 +170,15 @@ const TxtViewer = ({
                     className={`w-[70vw]  ${isAdmin ? "cursor-pointer" : ""}`}
                     onClick={startEditing}
                 >
-                    {content || (isAdmin ? "Click to edit..." : "Empty File")}
+                    {content || "Empty File"}
                 </pre>
+            )}
+            {!isInEditMode && showEditHint && (
+                <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center">
+                    <p className="text-lg font-medium text-gray-100 drop-shadow-[0_0_6px_rgba(255,255,255,0.55)]">
+                        Click to edit
+                    </p>
+                </div>
             )}
             {isInEditMode && (
                 <div className="grid grid-cols-3 mt-2 w-full items-center text-sm md:text-base">
@@ -161,7 +187,7 @@ const TxtViewer = ({
                             className="px-2 py-1 bg-gray-500 rounded text-gray-950"
                             onClick={discardChanges}
                         >
-                            Discard Changes
+                            Preview
                         </button>
                     </div>
                     <div className="text-gray-200 p-2 col-span-1 justify-self-center">
