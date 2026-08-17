@@ -359,9 +359,9 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                 alertStatus={alertStatus}
             />
 
-            <div className="flex flex-col items-start gap-x-2 rounded-md md:mt-5 lg:flex-row md:items-center">
+            <div className="flex flex-col justify-end gap-x-2 rounded-md md:mt-5 lg:flex-row ">
                 <Breadcrumb path={path} isAdmin={isAdmin} />
-                <div className="flex w-full min-w-0 items-center justify-between gap-x-1 lg:w-auto lg:shrink-0 lg:justify-end">
+                <div className="flex w-full min-w-0 items-center justify-end gap-x-1 lg:w-auto lg:shrink-0 justify-self-end">
                     {selectedFiles.size > 0 && (
                         <div className="flex min-h-5 shrink-0 gap-x-1">
                             <DownloadButton
