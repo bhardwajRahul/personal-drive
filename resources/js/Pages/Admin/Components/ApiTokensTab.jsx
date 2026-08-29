@@ -1,4 +1,4 @@
-import { router, route } from "@inertiajs/react";
+import { router } from "@inertiajs/react";
 import { useState, useEffect } from "react";
 import ApiDocs from "./ApiDocs.jsx";
 
