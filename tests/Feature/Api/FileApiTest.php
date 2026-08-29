@@ -1031,6 +1031,314 @@ class FileApiTest extends BaseFeatureTest
         $this->assertContains($response->status(), [200, 403, 404]);
     }
 
+    // ─── Upload Edge Cases ───
+
+    public function test_upload_to_root_with_empty_path_param(): void
+    {
+        $file = UploadedFile::fake()->create('root-empty-path.txt', 100);
+
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => [$file],
+            'path' => '',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'root-empty-path.txt');
+    }
+
+    public function test_upload_file_with_special_characters_in_name(): void
+    {
+        $file = UploadedFile::fake()->create('file (1) [copy].txt', 100);
+
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => [$file],
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'file (1) [copy].txt');
+    }
+
+    public function test_upload_nested_subdirectory_creates_all_parents(): void
+    {
+        $file = UploadedFile::fake()->create('deep-nested.txt', 100);
+
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => [$file],
+            'path' => 'a/b/c/d',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'a' . DS . 'b' . DS . 'c' . DS . 'd' . DS . 'deep-nested.txt');
+    }
+
+    public function test_upload_response_includes_file_ids(): void
+    {
+        $file = UploadedFile::fake()->create('id-check.txt', 100);
+
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => [$file],
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        $files = $response->json('files');
+        $this->assertNotEmpty($files);
+        $this->assertArrayHasKey('id', $files[0]);
+        $this->assertNotEmpty($files[0]['id']);
+    }
+
+    public function test_upload_response_includes_file_sizes(): void
+    {
+        $content = str_repeat('x', 100);
+        $file = UploadedFile::fake()->createWithContent('size-check.txt', $content);
+
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => [$file],
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        $files = $response->json('files');
+        $this->assertNotEmpty($files);
+        $this->assertArrayHasKey('size', $files[0]);
+        $this->assertEquals(100, $files[0]['size']);
+    }
+
+    // ─── Download Edge Cases ───
+
+    public function test_download_text_file_has_text_content_type(): void
+    {
+        $file = UploadedFile::fake()->createWithContent('text-ct.txt', 'plain text content');
+
+        $this->postJson('/api/v1/files/upload', [
+            'files' => [$file],
+        ], $this->authHeaders())->assertOk();
+
+        $localFile = LocalFile::where('filename', 'text-ct.txt')->first();
+        $response = $this->getJson("/api/v1/files/{$localFile->id}/download", $this->authHeaders());
+
+        $response->assertOk();
+        $contentType = $response->headers->get('Content-Type');
+        $this->assertStringContainsString('text/plain', $contentType);
+    }
+
+    public function test_download_non_text_file_returns_octet_stream(): void
+    {
+        $file = UploadedFile::fake()->createWithContent('data.bin', "\x00\x01\x02\x03");
+
+        $this->postJson('/api/v1/files/upload', [
+            'files' => [$file],
+        ], $this->authHeaders())->assertOk();
+
+        $localFile = LocalFile::where('filename', 'data.bin')->first();
+        $response = $this->getJson("/api/v1/files/{$localFile->id}/download", $this->authHeaders());
+
+        $response->assertOk();
+        $contentType = $response->headers->get('Content-Type');
+        $this->assertStringContainsString('application/octet-stream', $contentType);
+    }
+
+    // ─── Delete Edge Cases ───
+
+    public function test_delete_already_deleted_file_returns_404(): void
+    {
+        $this->uploadFile('', 'delete-twice.txt', 100);
+        $file = LocalFile::where('filename', 'delete-twice.txt')->first();
+
+        // First delete succeeds
+        $this->deleteJson("/api/v1/files/{$file->id}", [], $this->authHeaders())->assertOk();
+
+        // Second delete returns 404
+        $response = $this->deleteJson("/api/v1/files/{$file->id}", [], $this->authHeaders());
+        $response->assertNotFound();
+    }
+
+    public function test_delete_folder_with_nested_files_removes_all(): void
+    {
+        // Create nested structure: parent/child/grandchild.txt
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'nested-parent',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'child',
+            'type' => 'folder',
+            'path' => 'nested-parent',
+        ], $this->authHeaders())->assertOk();
+
+        $this->uploadFile('nested-parent/child', 'grandchild.txt', 100);
+
+        $folder = LocalFile::where('filename', 'nested-parent')->where('is_dir', true)->first();
+        $this->assertNotNull($folder);
+
+        $response = $this->deleteJson("/api/v1/files/{$folder->id}", [], $this->authHeaders());
+        $response->assertOk();
+
+        Storage::disk('local')->assertMissing(CONTENT_SUBDIR . DS . 'nested-parent');
+        $this->assertDatabaseMissing('local_files', ['filename' => 'child']);
+        $this->assertDatabaseMissing('local_files', ['filename' => 'grandchild.txt']);
+    }
+
+    // ─── Move Edge Cases ───
+
+    public function test_move_multiple_files_at_once(): void
+    {
+        // Create destination folder
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'multi-dest',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        // Upload 3 files
+        $this->uploadFile('', 'move-a.txt', 100);
+        $this->uploadFile('', 'move-b.txt', 100);
+        $this->uploadFile('', 'move-c.txt', 100);
+
+        $fileA = LocalFile::where('filename', 'move-a.txt')->first();
+        $fileB = LocalFile::where('filename', 'move-b.txt')->first();
+        $fileC = LocalFile::where('filename', 'move-c.txt')->first();
+
+        $response = $this->postJson('/api/v1/files/move', [
+            'fileList' => [(string) $fileA->id, (string) $fileB->id, (string) $fileC->id],
+            'destination' => 'multi-dest',
+        ], $this->authHeaders());
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'Files moved');
+
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'multi-dest' . DS . 'move-a.txt');
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'multi-dest' . DS . 'move-b.txt');
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'multi-dest' . DS . 'move-c.txt');
+    }
+
+    // ─── Rename Edge Cases ───
+
+    public function test_rename_folder_updates_children_paths(): void
+    {
+        // Create folder with a file inside
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'old-folder',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        $this->uploadFile('old-folder', 'child-file.txt', 100);
+
+        $folder = LocalFile::where('filename', 'old-folder')->where('is_dir', true)->first();
+        $child = LocalFile::where('filename', 'child-file.txt')->first();
+
+        // Verify child is in old folder
+        $this->assertEquals('old-folder', $child->public_path);
+
+        // Rename the folder
+        $response = $this->postJson("/api/v1/files/{$folder->id}/rename", [
+            'name' => 'new-folder',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+
+        // Check that child's path is updated
+        $child->refresh();
+        $this->assertEquals('new-folder', $child->public_path);
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'new-folder' . DS . 'child-file.txt');
+        Storage::disk('local')->assertMissing(CONTENT_SUBDIR . DS . 'old-folder');
+    }
+
+    public function test_rename_to_same_name_succeeds(): void
+    {
+        $this->uploadFile('', 'same-name.txt', 100);
+        $file = LocalFile::where('filename', 'same-name.txt')->first();
+
+        $response = $this->postJson("/api/v1/files/{$file->id}/rename", [
+            'name' => 'same-name.txt',
+        ], $this->authHeaders());
+
+        // Rename to same name — either 200 (noop success) or 422 (validation error)
+        $this->assertContains($response->status(), [200, 422]);
+    }
+
+    // ─── Save Edge Cases ───
+
+    public function test_save_empty_content(): void
+    {
+        $this->uploadFile('', 'save-empty.txt', 100);
+        $file = LocalFile::where('filename', 'save-empty.txt')->first();
+
+        $response = $this->postJson("/api/v1/files/{$file->id}/save", [
+            'content' => '',
+        ], $this->authHeaders());
+
+        // Empty string fails 'required' validation
+        $response->assertStatus(422);
+    }
+
+    public function test_save_large_content(): void
+    {
+        $this->uploadFile('', 'save-large.txt', 1);
+        $file = LocalFile::where('filename', 'save-large.txt')->first();
+
+        $content = str_repeat('x', 10240); // 10 KB
+        $response = $this->postJson("/api/v1/files/{$file->id}/save", [
+            'content' => $content,
+        ], $this->authHeaders());
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'File saved');
+
+        $this->assertEquals($content, file_get_contents($file->getPrivatePathNameForFile()));
+        $file->refresh();
+        $this->assertEquals(10240, $file->size);
+    }
+
+    public function test_save_updates_size_text_in_response(): void
+    {
+        $this->uploadFile('', 'size-text-save.txt', 1);
+        $file = LocalFile::where('filename', 'size-text-save.txt')->first();
+
+        $content = str_repeat('y', 500);
+        $response = $this->postJson("/api/v1/files/{$file->id}/save", [
+            'content' => $content,
+        ], $this->authHeaders());
+
+        $response->assertOk();
+
+        $responseFile = $response->json('file');
+        $this->assertNotNull($responseFile);
+        $this->assertEquals(500, $responseFile['size']);
+    }
+
+    // ─── Upload to Deep Path ───
+
+    public function test_upload_to_nonexistent_deep_path_creates_it(): void
+    {
+        $file = UploadedFile::fake()->create('deep-path.txt', 100);
+
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => [$file],
+            'path' => 'x/y/z',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'x' . DS . 'y' . DS . 'z' . DS . 'deep-path.txt');
+    }
+
+    // ─── Show Missing File ───
+
+    public function test_show_file_for_database_record_with_missing_disk_file_returns_404(): void
+    {
+        // Create a file record via upload, then delete the disk file
+        $this->uploadFile('', 'gone-from-disk.txt', 100);
+        $file = LocalFile::where('filename', 'gone-from-disk.txt')->first();
+        $this->assertNotNull($file);
+
+        // Delete the file from disk directly (not via API, to keep DB record)
+        Storage::disk('local')->delete(CONTENT_SUBDIR . DS . 'gone-from-disk.txt');
+
+        // Show should return 404 since disk file is missing
+        $response = $this->getJson("/api/v1/files/{$file->id}", $this->authHeaders());
+        $response->assertNotFound();
+    }
+
+    // ─── Cannot Delete Other User's File (app has no per-user isolation) ───
+
     protected function tearDown(): void
     {
         Storage::disk('local')->deleteDirectory('');

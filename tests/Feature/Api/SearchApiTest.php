@@ -187,6 +187,51 @@ class SearchApiTest extends BaseFeatureTest
         $this->assertIsArray($response->json('files'));
     }
 
+    public function test_search_with_single_character_query(): void
+    {
+        $this->uploadFile('', 'apple.txt', 100);
+
+        $response = $this->getJson('/api/v1/search?q=a', $this->authHeaders());
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'files')
+            ->assertJsonPath('files.0.filename', 'apple.txt');
+    }
+
+    public function test_search_with_no_results_returns_empty_array(): void
+    {
+        $response = $this->getJson('/api/v1/search?q=zzzznotfound', $this->authHeaders());
+
+        $response->assertOk()
+            ->assertJsonCount(0, 'files');
+    }
+
+    public function test_search_results_have_id_filename_public_path(): void
+    {
+        $this->uploadFile('', 'field-check.txt', 100);
+
+        $response = $this->getJson('/api/v1/search?q=field-check', $this->authHeaders());
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'files');
+
+        $file = $response->json('files.0');
+        $this->assertArrayHasKey('id', $file);
+        $this->assertArrayHasKey('filename', $file);
+        $this->assertArrayHasKey('public_path', $file);
+    }
+
+    public function test_search_query_is_case_insensitive(): void
+    {
+        $this->uploadFile('', 'README.txt', 100);
+
+        $response = $this->getJson('/api/v1/search?q=readme', $this->authHeaders());
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'files')
+            ->assertJsonPath('files.0.filename', 'README.txt');
+    }
+
     protected function tearDown(): void
     {
         Storage::disk('local')->deleteDirectory('');

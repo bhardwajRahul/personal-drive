@@ -255,6 +255,73 @@ class FavoriteApiTest extends BaseFeatureTest
         $response->assertStatus(422);
     }
 
+    public function test_favorite_response_includes_local_file_relation(): void
+    {
+        $this->uploadFile('', 'rel-check-fav.txt', 100);
+        $file = LocalFile::where('filename', 'rel-check-fav.txt')->first();
+
+        $this->postJson('/api/v1/favorites', [
+            'local_file_ids' => [(string) $file->id],
+        ], $this->authHeaders());
+
+        $response = $this->getJson('/api/v1/favorites', $this->authHeaders());
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'favorites');
+
+        $favorite = $response->json('favorites.0');
+        $this->assertArrayHasKey('local_file', $favorite);
+        $this->assertArrayHasKey('filename', $favorite['local_file']);
+        $this->assertEquals('rel-check-fav.txt', $favorite['local_file']['filename']);
+    }
+
+    public function test_add_multiple_favorites_at_once(): void
+    {
+        $this->uploadFile('', 'multi-fav-1.txt', 100);
+        $this->uploadFile('', 'multi-fav-2.txt', 100);
+
+        $file1 = LocalFile::where('filename', 'multi-fav-1.txt')->first();
+        $file2 = LocalFile::where('filename', 'multi-fav-2.txt')->first();
+
+        $response = $this->postJson('/api/v1/favorites', [
+            'local_file_ids' => [(string) $file1->id, (string) $file2->id],
+        ], $this->authHeaders());
+
+        $response->assertOk()
+            ->assertJsonCount(2, 'favorites');
+
+        $this->assertDatabaseHas('favorites', [
+            'user_id' => $this->apiUser->id,
+            'local_file_id' => $file1->id,
+        ]);
+        $this->assertDatabaseHas('favorites', [
+            'user_id' => $this->apiUser->id,
+            'local_file_id' => $file2->id,
+        ]);
+    }
+
+    public function test_remove_favorite_does_not_delete_file(): void
+    {
+        $this->uploadFile('', 'fav-not-deleted.txt', 100);
+        $file = LocalFile::where('filename', 'fav-not-deleted.txt')->first();
+
+        // Add favorite
+        $this->postJson('/api/v1/favorites', [
+            'local_file_ids' => [(string) $file->id],
+        ], $this->authHeaders());
+
+        $favorite = Favorite::where('user_id', $this->apiUser->id)
+            ->where('local_file_id', $file->id)
+            ->first();
+
+        // Remove favorite
+        $this->deleteJson("/api/v1/favorites/{$favorite->id}", [], $this->authHeaders());
+
+        // File should still exist in DB
+        $this->assertDatabaseHas('local_files', ['id' => $file->id]);
+        $this->assertDatabaseMissing('favorites', ['id' => $favorite->id]);
+    }
+
     protected function tearDown(): void
     {
         Storage::disk('local')->deleteDirectory('');

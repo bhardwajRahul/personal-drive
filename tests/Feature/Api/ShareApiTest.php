@@ -345,6 +345,103 @@ class ShareApiTest extends BaseFeatureTest
         $this->assertStringEndsWith('/shared/url-format-test', $url);
     }
 
+    public function test_create_share_with_empty_file_list_returns_422(): void
+    {
+        $response = $this->postJson('/api/v1/shares', [
+            'fileList' => [],
+            'slug' => 'empty-file-share',
+        ], $this->authHeaders());
+
+        $response->assertStatus(422);
+    }
+
+    public function test_share_slug_is_string(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        $response = $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'string-slug-check',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+
+        $slug = $response->json('share.slug');
+        $this->assertIsString($slug);
+        $this->assertNotEmpty($slug);
+    }
+
+    public function test_share_url_contains_slug(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        $response = $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'url-slug-check',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+
+        $url = $response->json('url');
+        $this->assertIsString($url);
+        $this->assertStringContainsString('url-slug-check', $url);
+    }
+
+    public function test_toggle_share_multiple_times(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'multi-toggle',
+            'expiry' => 13,
+        ], $this->authHeaders());
+
+        $share = Share::where('slug', 'multi-toggle')->first();
+
+        // Initially enabled
+        $this->assertTrue((bool) $share->enabled);
+
+        // Toggle 1: disable
+        $this->postJson("/api/v1/shares/{$share->id}/toggle", [], $this->authHeaders());
+        $share->refresh();
+        $this->assertFalse((bool) $share->enabled);
+
+        // Toggle 2: enable
+        $this->postJson("/api/v1/shares/{$share->id}/toggle", [], $this->authHeaders());
+        $share->refresh();
+        $this->assertTrue((bool) $share->enabled);
+
+        // Toggle 3: disable
+        $response = $this->postJson("/api/v1/shares/{$share->id}/toggle", [], $this->authHeaders());
+        $response->assertOk();
+        $share->refresh();
+        $this->assertFalse((bool) $share->enabled);
+    }
+
+    public function test_delete_share_does_not_delete_files(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'delete-share-files',
+        ], $this->authHeaders());
+
+        $share = Share::where('slug', 'delete-share-files')->first();
+
+        $this->deleteJson("/api/v1/shares/{$share->id}", [], $this->authHeaders());
+
+        // Files should still exist in DB
+        foreach ($files as $file) {
+            $this->assertDatabaseHas('local_files', ['id' => $file->id]);
+        }
+    }
+
     protected function tearDown(): void
     {
         Storage::disk('local')->deleteDirectory('');

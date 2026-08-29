@@ -301,4 +301,174 @@ class ApiTokenTest extends BaseFeatureTest
         $this->assertIsNumeric($tokenId);
         $this->assertGreaterThan(0, $tokenId);
     }
+
+    // ─── Edge Cases ───
+
+    public function test_create_token_with_empty_name_string(): void
+    {
+        $this->makeUser();
+
+        $response = $this->postJson('/api/v1/tokens', ['name' => '']);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors('name');
+    }
+
+    public function test_create_token_with_only_whitespace_name(): void
+    {
+        $this->makeUser();
+
+        $response = $this->postJson('/api/v1/tokens', ['name' => '   ']);
+
+        // Whitespace-only name: either 422 (validation) or 200 (stored as-is)
+        $this->assertContains($response->status(), [200, 422]);
+    }
+
+    public function test_create_token_name_exactly_255_chars(): void
+    {
+        $this->makeUser();
+
+        $name255 = str_repeat('a', 255);
+        $response = $this->postJson('/api/v1/tokens', ['name' => $name255]);
+
+        $response->assertOk()
+            ->assertJsonPath('token.name', $name255);
+        $this->assertDatabaseHas('personal_access_tokens', ['name' => $name255]);
+    }
+
+    public function test_create_token_name_256_chars(): void
+    {
+        $this->makeUser();
+
+        $name256 = str_repeat('a', 256);
+        $response = $this->postJson('/api/v1/tokens', ['name' => $name256]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_create_token_with_html_in_name(): void
+    {
+        $this->makeUser();
+
+        $xssName = '<script>alert(1)</script>';
+        $response = $this->postJson('/api/v1/tokens', ['name' => $xssName]);
+
+        $response->assertOk()
+            ->assertJsonPath('token.name', $xssName);
+
+        // Stored as-is, no XSS in API response
+        $this->assertDatabaseHas('personal_access_tokens', ['name' => $xssName]);
+    }
+
+    public function test_token_abilities_are_exactly_api(): void
+    {
+        $user = $this->makeUser();
+
+        $response = $this->postJson('/api/v1/tokens', ['name' => 'ability-check']);
+        $response->assertOk();
+
+        $token = DB::table('personal_access_tokens')->where('name', 'ability-check')->first();
+        $this->assertNotNull($token);
+        $this->assertEquals(['api'], json_decode($token->abilities, true));
+    }
+
+    public function test_multiple_users_create_tokens_independently(): void
+    {
+        // User A creates a token
+        $userA = $this->makeUser();
+        $this->postJson('/api/v1/tokens', ['name' => 'token-a'])->assertOk();
+
+        // User B creates a token
+        $userB = User::create([
+            'username' => 'userb',
+            'is_admin' => false,
+            'password' => 'password',
+        ]);
+        $this->actingAs($userB);
+        $this->postJson('/api/v1/tokens', ['name' => 'token-b'])->assertOk();
+
+        // User A only sees their own token
+        $this->actingAs($userA);
+        $tokensA = $this->getJson('/api/v1/tokens')->json('tokens');
+        $this->assertCount(1, $tokensA);
+        $this->assertEquals('token-a', $tokensA[0]['name']);
+
+        // User B only sees their own token
+        $this->actingAs($userB);
+        $tokensB = $this->getJson('/api/v1/tokens')->json('tokens');
+        $this->assertCount(1, $tokensB);
+        $this->assertEquals('token-b', $tokensB[0]['name']);
+    }
+
+    public function test_delete_token_does_not_affect_other_users_tokens(): void
+    {
+        // User A creates a token
+        $userA = $this->makeUser();
+        $createA = $this->postJson('/api/v1/tokens', ['name' => 'keep-this']);
+        $createA->assertOk();
+        $tokenIdA = $createA->json('token.id');
+
+        // User B creates a token
+        $userB = User::create([
+            'username' => 'userb',
+            'is_admin' => false,
+            'password' => 'password',
+        ]);
+        $this->actingAs($userB);
+        $this->postJson('/api/v1/tokens', ['name' => 'token-b'])->assertOk();
+
+        // User B tries to delete User A's token — should fail
+        $response = $this->deleteJson('/api/v1/tokens/' . $tokenIdA);
+        $response->assertNotFound();
+
+        // User A's token still exists
+        $this->assertDatabaseHas('personal_access_tokens', ['name' => 'keep-this']);
+
+        // User A can still list their token
+        $this->actingAs($userA);
+        $tokens = $this->getJson('/api/v1/tokens')->json('tokens');
+        $this->assertCount(1, $tokens);
+    }
+
+    public function test_token_list_response_structure(): void
+    {
+        $user = $this->makeUser();
+        $this->postJson('/api/v1/tokens', ['name' => 'structure-test'])->assertOk();
+
+        $response = $this->getJson('/api/v1/tokens');
+        $response->assertOk();
+
+        $tokens = $response->json('tokens');
+        $this->assertNotEmpty($tokens);
+
+        $token = $tokens[0];
+        $this->assertArrayHasKey('id', $token);
+        $this->assertArrayHasKey('name', $token);
+        $this->assertArrayHasKey('created_at', $token);
+        $this->assertArrayHasKey('last_used_at', $token);
+        $this->assertArrayHasKey('abilities', $token);
+
+        // No extra fields beyond the expected set
+        $expectedKeys = ['id', 'name', 'created_at', 'last_used_at', 'abilities'];
+        $this->assertEquals($expectedKeys, array_keys($token));
+    }
+
+    public function test_create_token_response_does_not_include_hash(): void
+    {
+        $this->makeUser();
+
+        $response = $this->postJson('/api/v1/tokens', ['name' => 'no-hash-test']);
+        $response->assertOk();
+
+        $tokenData = $response->json('token');
+        $this->assertArrayNotHasKey('tokenable_type', $tokenData);
+        $this->assertArrayNotHasKey('tokenable_id', $tokenData);
+        $this->assertArrayNotHasKey('token', $tokenData);
+        $this->assertArrayNotHasKey('hash', $tokenData);
+        $this->assertArrayNotHasKey('plain_text_token', $tokenData);
+
+        // The top-level response should only have 'token' and 'plain_text_token'
+        $this->assertArrayHasKey('token', $response->json());
+        $this->assertArrayHasKey('plain_text_token', $response->json());
+    }
 }
