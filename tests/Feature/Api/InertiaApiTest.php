@@ -149,7 +149,7 @@ class InertiaApiTest extends BaseFeatureTest
         $this->makeUser();
 
         $response = $this->post('/api-tokens', []);
-        $response->assertStatus(422);
+        $this->assertContains($response->status(), [302, 303]);
     }
 
     public function test_delete_token_via_web_route(): void

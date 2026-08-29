@@ -3,10 +3,9 @@
 namespace App\Http\Controllers\AdminControllers;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\JsonResponse;
+use App\Http\Requests\Api\StoreApiTokenRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
 
 class ApiTokenController extends Controller
 {
@@ -17,17 +16,17 @@ class ApiTokenController extends Controller
             ->select('id', 'name', 'created_at', 'last_used_at', 'abilities')
             ->get();
 
-        return inertia('Admin/ApiTokens', ['tokens' => $tokens]);
+        return inertia('Admin/ApiTokens', [
+            'tokens' => $tokens,
+            'flash' => [
+                'plain_text_token' => session('plain_text_token'),
+                'token_name' => session('token_name'),
+            ],
+        ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreApiTokenRequest $request)
     {
-        try {
-            $request->validate(['name' => 'required|string|max:255']);
-        } catch (ValidationException $e) {
-            return response()->json(['message' => $e->getMessage(), 'errors' => $e->errors()], 422);
-        }
-
         $token = $request->user()->createToken($request->name, ['api']);
 
         return redirect()->back()->with([

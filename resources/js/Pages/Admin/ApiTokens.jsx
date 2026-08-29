@@ -1,14 +1,21 @@
 import Header from "@/Pages/Drive/Layouts/Header.jsx";
 import { router, usePage } from "@inertiajs/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-export default function ApiTokens({ tokens }) {
-    const { flash } = usePage().props;
+export default function ApiTokens({ tokens, flash }) {
     const [showTokenModal, setShowTokenModal] = useState(false);
     const [createdToken, setCreatedToken] = useState(null);
     const [tokenName, setTokenName] = useState("");
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState({});
+
+    // Show modal from flash data (after redirect) or from immediate create
+    useEffect(() => {
+        if (flash?.plain_text_token) {
+            setCreatedToken(flash.plain_text_token);
+            setShowTokenModal(true);
+        }
+    }, [flash]);
 
     function handleCreate(e) {
         e.preventDefault();
@@ -55,6 +62,7 @@ export default function ApiTokens({ tokens }) {
                 </h2>
                 <main className="mx-auto max-w-7xl">
                     <div className="max-w-3xl mx-auto bg-blue-900/15 p-2 md:p-12 min-h-[500px] flex flex-col gap-y-8 md:gap-y-20">
+                        {/* Create Token */}
                         <div>
                             <h2 className="text-blue-200 text-2xl font-bold mt-2 mb-2">
                                 Create Token
@@ -89,6 +97,7 @@ export default function ApiTokens({ tokens }) {
                             </div>
                         </div>
 
+                        {/* Existing Tokens */}
                         <div>
                             <h2 className="text-blue-200 text-2xl font-bold mt-2 mb-2">
                                 Existing Tokens
@@ -156,10 +165,373 @@ export default function ApiTokens({ tokens }) {
                                 )}
                             </div>
                         </div>
+
+                        {/* API Documentation */}
+                        <div>
+                            <h2 className="text-blue-200 text-2xl font-bold mt-2 mb-2">
+                                API Documentation
+                            </h2>
+                            <div className="bg-slate-900/50 p-4 md:p-6 rounded-lg border border-blue-900/30 space-y-6">
+                                {/* Getting Started */}
+                                <div>
+                                    <h3 className="text-blue-300 text-lg font-semibold mb-2">
+                                        Getting Started
+                                    </h3>
+                                    <p className="text-gray-400 text-sm mb-2">
+                                        Create a token above, then include it in
+                                        every request:
+                                    </p>
+                                    <div className="bg-blue-950 p-3 rounded border border-blue-800 text-sm font-mono text-gray-300">
+                                        Authorization: Bearer{" "}
+                                        {"<your-token>"}
+                                    </div>
+                                    <p className="text-gray-500 text-xs mt-2">
+                                        Rate limit: 60 requests per minute per
+                                        token.
+                                    </p>
+                                </div>
+
+                                {/* Endpoint Reference */}
+                                <div>
+                                    <h3 className="text-blue-300 text-lg font-semibold mb-3">
+                                        Endpoints
+                                    </h3>
+
+                                    {/* Files */}
+                                    <h4 className="text-gray-300 text-sm font-semibold mb-1">
+                                        Files
+                                    </h4>
+                                    <div className="overflow-x-auto mb-4">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="border-b border-blue-900/30 text-gray-400">
+                                                    <th className="text-left py-1 pr-3">
+                                                        Method
+                                                    </th>
+                                                    <th className="text-left py-1 pr-3">
+                                                        URL
+                                                    </th>
+                                                    <th className="text-left py-1 pr-3">
+                                                        Description
+                                                    </th>
+                                                    <th className="text-left py-1">
+                                                        Parameters
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="text-gray-300">
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-green-400 font-mono text-xs bg-green-900/30 px-1 rounded">
+                                                            GET
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/files
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        List files (paginated)
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400">
+                                                        path, per_page
+                                                    </td>
+                                                </tr>
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-green-400 font-mono text-xs bg-green-900/30 px-1 rounded">
+                                                            GET
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/files/:id
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Get file info
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400"></td>
+                                                </tr>
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-blue-400 font-mono text-xs bg-blue-900/30 px-1 rounded">
+                                                            POST
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/files/upload
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Upload files
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400">
+                                                        files[], path
+                                                    </td>
+                                                </tr>
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-blue-400 font-mono text-xs bg-blue-900/30 px-1 rounded">
+                                                            POST
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/files/create
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Create file/folder
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400">
+                                                        name, type, path
+                                                    </td>
+                                                </tr>
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-green-400 font-mono text-xs bg-green-900/30 px-1 rounded">
+                                                            GET
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/files/:id/download
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Download file
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400"></td>
+                                                </tr>
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-red-400 font-mono text-xs bg-red-900/30 px-1 rounded">
+                                                            DELETE
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/files/:id
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Delete file
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400"></td>
+                                                </tr>
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-blue-400 font-mono text-xs bg-blue-900/30 px-1 rounded">
+                                                            POST
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/files/move
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Move files
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400">
+                                                        fileList[], destination
+                                                    </td>
+                                                </tr>
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-blue-400 font-mono text-xs bg-blue-900/30 px-1 rounded">
+                                                            POST
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/files/:id/rename
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Rename file
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400">
+                                                        name
+                                                    </td>
+                                                </tr>
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-blue-400 font-mono text-xs bg-blue-900/30 px-1 rounded">
+                                                            POST
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/files/:id/save
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Save file content
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400">
+                                                        content
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Search */}
+                                    <h4 className="text-gray-300 text-sm font-semibold mb-1">
+                                        Search
+                                    </h4>
+                                    <div className="overflow-x-auto mb-4">
+                                        <table className="w-full text-sm">
+                                            <tbody className="text-gray-300">
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3 w-20">
+                                                        <span className="text-green-400 font-mono text-xs bg-green-900/30 px-1 rounded">
+                                                            GET
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/search?q=...
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Search files (paginated)
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400">
+                                                        q
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Favorites */}
+                                    <h4 className="text-gray-300 text-sm font-semibold mb-1">
+                                        Favorites
+                                    </h4>
+                                    <div className="overflow-x-auto mb-4">
+                                        <table className="w-full text-sm">
+                                            <tbody className="text-gray-300">
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3 w-20">
+                                                        <span className="text-green-400 font-mono text-xs bg-green-900/30 px-1 rounded">
+                                                            GET
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/favorites
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        List favorites (paginated)
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400"></td>
+                                                </tr>
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-blue-400 font-mono text-xs bg-blue-900/30 px-1 rounded">
+                                                            POST
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/favorites
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Add favorite
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400">
+                                                        local_file_ids[]
+                                                    </td>
+                                                </tr>
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-red-400 font-mono text-xs bg-red-900/30 px-1 rounded">
+                                                            DELETE
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/favorites/:id
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Remove favorite
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400"></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Shares */}
+                                    <h4 className="text-gray-300 text-sm font-semibold mb-1">
+                                        Shares
+                                    </h4>
+                                    <div className="overflow-x-auto mb-4">
+                                        <table className="w-full text-sm">
+                                            <tbody className="text-gray-300">
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3 w-20">
+                                                        <span className="text-green-400 font-mono text-xs bg-green-900/30 px-1 rounded">
+                                                            GET
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/shares
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        List shares (paginated)
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400"></td>
+                                                </tr>
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-blue-400 font-mono text-xs bg-blue-900/30 px-1 rounded">
+                                                            POST
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/shares
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Create share
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400">
+                                                        fileList[], slug?,
+                                                        password?, expiry?
+                                                    </td>
+                                                </tr>
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-red-400 font-mono text-xs bg-red-900/30 px-1 rounded">
+                                                            DELETE
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/shares/:id
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Delete share
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400"></td>
+                                                </tr>
+                                                <tr className="border-b border-blue-900/20">
+                                                    <td className="py-1 pr-3">
+                                                        <span className="text-blue-400 font-mono text-xs bg-blue-900/30 px-1 rounded">
+                                                            POST
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-1 pr-3 font-mono text-xs">
+                                                        /api/v1/shares/:id/toggle
+                                                    </td>
+                                                    <td className="py-1 pr-3">
+                                                        Toggle share enabled/disabled
+                                                    </td>
+                                                    <td className="py-1 text-xs text-gray-400"></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* Example */}
+                                <div>
+                                    <h3 className="text-blue-300 text-lg font-semibold mb-2">
+                                        Example
+                                    </h3>
+                                    <div className="bg-blue-950 p-3 rounded border border-blue-800 text-sm font-mono text-gray-300 whitespace-pre-wrap overflow-x-auto">
+{`curl -X GET "https://your-domain.com/api/v1/files" \\
+  -H "Authorization: Bearer <your-token>"`}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </main>
             </div>
 
+            {/* One-time Token Display Modal */}
             {showTokenModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
                     <div className="bg-gray-900 border border-blue-900/50 rounded-lg p-6 max-w-md w-full mx-4">
