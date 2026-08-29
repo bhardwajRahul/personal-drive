@@ -70,6 +70,7 @@
 - Config option to disable authentication
 - Config options to run behind a http proxy (reverse proxy)
 - Two Factor Authentication powered by TOTP protocol. Ex: Google Authentication
+- Password-protected file upload (client-side AES-256 encrypted zip)
 
 ---
 

@@ -2,6 +2,7 @@
 
 ## Not versioned changes
 
+- Password-protected file upload (client-side AES-256 encrypted zip)
 - Upload queue with per-upload progress reporting
 - Favorites for files and folders, with a dedicated Favorites menu
 - Sort by modification date, with selected sort preferences remembered
@@ -13,6 +14,9 @@
 - Audiobook features: save position automatically, multiple rewind buttons
 - Stream line settings for autoplaying media
 - Improve setup.sh for better permission handling
+- Better error messages for failed move/download and conflict uploads
+- Show total shares count
+- Handle too-long path names
 - Security hardening: storage-path and symlink protection, safer file responses, sanitized text content, rate-limited two-factor attempts, and stronger share-access checks
 - Support running behind reverse proxies by adding configurable/optional trusted proxies
 - Support no auth mode
