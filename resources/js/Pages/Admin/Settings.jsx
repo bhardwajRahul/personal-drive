@@ -11,15 +11,6 @@ const TABS = [
     ["docs", "Documentation"],
 ];
 
-function getInitialTab() {
-    if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        const tab = params.get("tab");
-        if (TABS.some(([key]) => key === tab)) return tab;
-    }
-    return "config";
-}
-
 export default function Settings({
     storage_path,
     php_max_upload_size,
@@ -29,9 +20,11 @@ export default function Settings({
     twoFactorStatus,
     show_two_factor_option,
     tokens = [],
+    server_configs = [],
+    api_endpoints = [],
     flash = {},
 }) {
-    const [activeTab, setActiveTab] = useState(getInitialTab);
+    const [activeTab, setActiveTab] = useState('config');
 
     function switchTab(tab) {
         setActiveTab(tab);
@@ -81,6 +74,7 @@ export default function Settings({
                         {activeTab === "tokens" && (
                             <ApiTokensTab
                                 tokens={tokens}
+                                api_endpoints={api_endpoints}
                                 flash={flash}
                             />
                         )}
@@ -91,6 +85,7 @@ export default function Settings({
                                     php_max_upload_size={php_max_upload_size}
                                     php_post_max_size={php_post_max_size}
                                     php_max_file_uploads={php_max_file_uploads}
+                                    server_configs={server_configs}
                                 />
                             </div>
                         )}

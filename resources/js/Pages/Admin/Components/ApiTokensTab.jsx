@@ -2,7 +2,7 @@ import { router } from "@inertiajs/react";
 import { useState, useEffect } from "react";
 import ApiDocs from "./ApiDocs.jsx";
 
-export default function ApiTokensTab({ tokens, flash }) {
+export default function ApiTokensTab({ tokens, api_endpoints, flash }) {
     const [showTokenModal, setShowTokenModal] = useState(false);
     const [createdToken, setCreatedToken] = useState(null);
     const [tokenName, setTokenName] = useState("");
@@ -154,7 +154,7 @@ export default function ApiTokensTab({ tokens, flash }) {
                 <h2 className="text-blue-200 text-2xl font-bold mt-2 mb-2">
                     API Documentation
                 </h2>
-                <ApiDocs />
+                <ApiDocs sections={api_endpoints} />
             </div>
 
             {/* One-time Token Display Modal */}

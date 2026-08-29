@@ -10,7 +10,6 @@ const ToggleTwoFactorModal = ({isTwoFaModalOpen, setIsTwoFaModalOpen, twoFactorS
 
     const [qrSvg, setQrSvg] = useState("");
     const [twoFactorCode, setTwoFactorCode] = useState("");
-    console.log('isTwoFaModalOpen ', isTwoFaModalOpen);
 
     useEffect(() => {
         const generateQr = async () => {
