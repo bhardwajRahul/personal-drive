@@ -99,10 +99,15 @@ class LocalFile extends Model
         return $this->public_path ? $this->public_path . DS : '';
     }
 
-    public static function searchFiles(string $searchQuery): Collection
+    public static function searchFiles(string $searchQuery, ?int $userId = null): Collection
     {
-        $fileItems = static::where('filename', 'like', '%' . $searchQuery . '%')
-            ->get();
+        $query = static::where('filename', 'like', '%' . $searchQuery . '%');
+
+        if ($userId !== null) {
+            $query->where('user_id', $userId);
+        }
+
+        $fileItems = $query->get();
 
         return self::modifyFileCollectionForDrive($fileItems);
     }
