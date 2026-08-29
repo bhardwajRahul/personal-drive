@@ -35,13 +35,11 @@ Route::middleware([OptionalAuth::class, 'web', 'auth', CheckAdmin::class])->grou
         '/admin-config/two-factor-code-disable',
         [AdminControllers\AdminConfigController::class, 'twoFactorCodeDisable']
     )->middleware('throttle:two-factor')->name('admin-config.two-factor-code-disable');
-    Route::get('/api-tokens', function () {
-        $user = \Illuminate\Support\Facades\Auth::user();
-        $tokens = $user->tokens()
-            ->select('id', 'name', 'created_at', 'last_used_at', 'abilities')
-            ->get();
-        return inertia('Admin/ApiTokens', ['tokens' => $tokens]);
-    })->name('admin.api-tokens');
+
+    // Token management (session auth — browser UI)
+    Route::get('/api-tokens', [AdminControllers\ApiTokenController::class, 'showPage'])->name('admin.api-tokens');
+    Route::post('/api-tokens', [AdminControllers\ApiTokenController::class, 'store'])->name('admin.api-tokens.store');
+    Route::delete('/api-tokens/{tokenId}', [AdminControllers\ApiTokenController::class, 'destroy'])->name('admin.api-tokens.destroy');
     // Drive routes
     Route::get('/drive/{path?}', [DriveControllers\FileManagerController::class, 'index'])
         ->where('path', '.*')

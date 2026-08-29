@@ -1,30 +1,44 @@
 import Header from "@/Pages/Drive/Layouts/Header.jsx";
-import { useForm, usePage } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 import { useState } from "react";
 
 export default function ApiTokens({ tokens }) {
-    const { auth } = usePage().props;
+    const { flash } = usePage().props;
     const [showTokenModal, setShowTokenModal] = useState(false);
     const [createdToken, setCreatedToken] = useState(null);
-
-    const form = useForm({ name: "" });
-    const deleteForm = useForm();
+    const [tokenName, setTokenName] = useState("");
+    const [processing, setProcessing] = useState(false);
+    const [errors, setErrors] = useState({});
 
     function handleCreate(e) {
         e.preventDefault();
-        form.post("/api/v1/tokens", {
-            onSuccess: (page) => {
-                const data = page.props;
-                setCreatedToken(data.plain_text_token);
-                setShowTokenModal(true);
-                form.reset("name");
-            },
-        });
+        setProcessing(true);
+        setErrors({});
+
+        router.post(
+            route("admin.api-tokens.store"),
+            { name: tokenName },
+            {
+                onSuccess: (page) => {
+                    const plain = page.props.flash?.plain_text_token;
+                    if (plain) {
+                        setCreatedToken(plain);
+                        setShowTokenModal(true);
+                        setTokenName("");
+                    }
+                    setProcessing(false);
+                },
+                onError: (err) => {
+                    setErrors(err);
+                    setProcessing(false);
+                },
+            }
+        );
     }
 
     function handleDelete(tokenId) {
         if (!confirm("Are you sure you want to delete this token?")) return;
-        deleteForm.delete(`/api/v1/tokens/${tokenId}`);
+        router.delete(route("admin.api-tokens.destroy", tokenId));
     }
 
     function copyToken() {
@@ -52,24 +66,24 @@ export default function ApiTokens({ tokens }) {
                                 >
                                     <input
                                         type="text"
-                                        value={form.data.name}
+                                        value={tokenName}
                                         onChange={(e) =>
-                                            form.setData("name", e.target.value)
+                                            setTokenName(e.target.value)
                                         }
                                         placeholder="Token name (e.g. 'my-app')"
                                         className="flex-1 bg-blue-950 p-2 rounded border border-blue-800 text-gray-300 outline-none"
                                     />
                                     <button
                                         type="submit"
-                                        disabled={form.processing}
+                                        disabled={processing}
                                         className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50"
                                     >
                                         Create
                                     </button>
                                 </form>
-                                {form.errors.name && (
+                                {errors.name && (
                                     <p className="text-red-400 text-sm mt-2">
-                                        {form.errors.name}
+                                        {errors.name}
                                     </p>
                                 )}
                             </div>
@@ -149,19 +163,17 @@ export default function ApiTokens({ tokens }) {
             {showTokenModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
                     <div className="bg-gray-900 border border-blue-900/50 rounded-lg p-6 max-w-md w-full mx-4">
-                        <h3 className="text-xl font-bold text-gray-200 mb-2">
+                        <h3 className="text-lg font-semibold text-gray-200 mb-2">
                             Token Created
                         </h3>
-                        <p className="text-orange-400 text-sm font-bold mb-4">
+                        <p className="text-gray-400 text-sm mb-4">
                             Copy this token now. You won't be able to see it
                             again.
                         </p>
-                        <div className="bg-slate-950 p-3 rounded border border-blue-800 mb-4">
-                            <code className="text-green-400 text-sm break-all">
-                                {createdToken}
-                            </code>
+                        <div className="bg-blue-950 p-3 rounded border border-blue-800 text-gray-300 text-sm font-mono break-all mb-4">
+                            {createdToken}
                         </div>
-                        <div className="flex justify-end gap-2">
+                        <div className="flex gap-3">
                             <button
                                 onClick={copyToken}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"

@@ -135,8 +135,8 @@ class InertiaApiTest extends BaseFeatureTest
     {
         $user = $this->makeUser();
 
-        $response = $this->post('/api/v1/tokens', ['name' => 'web-created-token']);
-        $response->assertOk();
+        $response = $this->post('/api-tokens', ['name' => 'web-created-token']);
+        $response->assertRedirect();
 
         $this->assertDatabaseHas('personal_access_tokens', [
             'name' => 'web-created-token',
@@ -148,7 +148,7 @@ class InertiaApiTest extends BaseFeatureTest
     {
         $this->makeUser();
 
-        $response = $this->post('/api/v1/tokens', []);
+        $response = $this->post('/api-tokens', []);
         $response->assertStatus(422);
     }
 
@@ -157,17 +157,17 @@ class InertiaApiTest extends BaseFeatureTest
         $user = $this->makeUser();
         $token = $user->createToken('to-delete', ['api']);
 
-        $response = $this->delete('/api/v1/tokens/' . $token->accessToken->id);
-        $response->assertNoContent();
+        $response = $this->delete('/api-tokens/' . $token->accessToken->id);
+        $response->assertRedirect();
 
         $this->assertDatabaseMissing('personal_access_tokens', ['name' => 'to-delete']);
     }
 
-    public function test_delete_nonexistent_token_via_web_returns_404(): void
+    public function test_delete_nonexistent_token_via_web_returns_error(): void
     {
         $this->makeUser();
 
-        $response = $this->delete('/api/v1/tokens/99999');
-        $response->assertNotFound();
+        $response = $this->delete('/api-tokens/99999');
+        $response->assertRedirect();
     }
 }

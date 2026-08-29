@@ -7,12 +7,6 @@ use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\ShareController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth'])->prefix('v1')->group(function () {
-    Route::get('/tokens', [ApiTokenController::class, 'index']);
-    Route::post('/tokens', [ApiTokenController::class, 'store']);
-    Route::delete('/tokens/{tokenId}', [ApiTokenController::class, 'destroy']);
-});
-
 Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('v1')->group(function () {
     Route::get('/files', [FileController::class, 'index']);
     Route::post('/files/upload', [FileController::class, 'upload']);
