@@ -100,6 +100,93 @@ class SearchApiTest extends BaseFeatureTest
         $this->assertContains($response->status(), [401, 403]);
     }
 
+    public function test_search_is_case_insensitive(): void
+    {
+        $this->uploadFile('', 'README.txt', 100);
+
+        $response = $this->getJson('/api/v1/search?q=readme', $this->authHeaders());
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'files')
+            ->assertJsonPath('files.0.filename', 'README.txt');
+    }
+
+    public function test_search_returns_empty_for_empty_query(): void
+    {
+        $this->uploadFile('', 'test-file.txt', 100);
+
+        $response = $this->getJson('/api/v1/search?q=', $this->authHeaders());
+
+        $response->assertStatus(422);
+    }
+
+    public function test_search_does_not_return_other_users_files(): void
+    {
+        $this->uploadFile('', 'my-exclusive-file.txt', 100);
+
+        $otherUser = User::create([
+            'username' => 'other-search-user',
+            'is_admin' => false,
+            'password' => 'password',
+        ]);
+
+        LocalFile::create([
+            'filename' => 'other-exclusive-file.txt',
+            'public_path' => '',
+            'private_path' => Storage::disk('local')->path(CONTENT_SUBDIR),
+            'user_id' => $otherUser->id,
+            'size' => 100,
+            'is_dir' => false,
+            'file_type' => 'text',
+        ]);
+
+        // Search for "exclusive" — both files would match if scoping didn't work
+        $response = $this->getJson('/api/v1/search?q=exclusive', $this->authHeaders());
+
+        $response->assertOk();
+
+        $filenames = collect($response->json('files'))->pluck('filename')->toArray();
+        $this->assertCount(1, $filenames);
+        $this->assertContains('my-exclusive-file.txt', $filenames);
+        $this->assertNotContains('other-exclusive-file.txt', $filenames);
+
+        // Verify the result belongs to current user
+        $fileId = $response->json('files.0.id');
+        $localFile = LocalFile::find($fileId);
+        $this->assertEquals($this->apiUser->id, $localFile->user_id);
+    }
+
+    public function test_search_results_have_expected_structure(): void
+    {
+        $this->uploadFile('', 'structured.txt', 100);
+
+        $response = $this->getJson('/api/v1/search?q=structured', $this->authHeaders());
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'files')
+            ->assertJsonStructure([
+                'files' => [
+                    [
+                        'id',
+                        'filename',
+                        'public_path',
+                    ],
+                ],
+            ]);
+    }
+
+    public function test_search_with_special_characters(): void
+    {
+        $this->uploadFile('', 'file (1).txt', 100);
+
+        $response = $this->getJson('/api/v1/search?q=file%20(1)', $this->authHeaders());
+
+        $response->assertOk();
+
+        // Should not crash — either find it or return empty
+        $this->assertIsArray($response->json('files'));
+    }
+
     protected function tearDown(): void
     {
         Storage::disk('local')->deleteDirectory('');

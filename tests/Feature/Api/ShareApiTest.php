@@ -169,6 +169,182 @@ class ShareApiTest extends BaseFeatureTest
         $this->assertContains($response->status(), [401, 403]);
     }
 
+    public function test_create_share_generates_slug_if_not_provided(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        $response = $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+        ], $this->authHeaders());
+
+        $response->assertOk();
+
+        $slug = $response->json('share.slug');
+        $this->assertNotEmpty($slug);
+        $this->assertMatchesRegularExpression('/^[a-zA-Z0-9]{10}$/', $slug);
+    }
+
+    public function test_create_share_with_custom_slug(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        $response = $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'custom-slug-test',
+        ], $this->authHeaders());
+
+        $response->assertOk()
+            ->assertJsonPath('share.slug', 'custom-slug-test');
+
+        $this->assertDatabaseHas('shares', ['slug' => 'custom-slug-test']);
+    }
+
+    public function test_share_password_is_hashed_not_plaintext(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        $response = $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'hash-check-share',
+            'password' => 'mypassword123',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+
+        $share = Share::where('slug', 'hash-check-share')->first();
+        $this->assertNotEmpty($share->password);
+        $this->assertNotEquals('mypassword123', $share->password);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('mypassword123', $share->password));
+    }
+
+    public function test_list_shares_excludes_expired(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        // Create share with expiry of 1 day
+        $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'expired-share',
+            'expiry' => 1,
+        ], $this->authHeaders());
+
+        // Manually set created_at to 2 days ago so the share is expired
+        Share::where('slug', 'expired-share')
+            ->update(['created_at' => now()->subDays(2)]);
+
+        $response = $this->getJson('/api/v1/shares', $this->authHeaders());
+
+        $response->assertOk();
+
+        $slugs = collect($response->json('shares'))->pluck('slug')->toArray();
+        $this->assertNotContains('expired-share', $slugs);
+    }
+
+    public function test_list_shares_includes_enabled_and_disabled(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        // Create share, then pause it
+        $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'paused-share',
+            'expiry' => 13,
+        ], $this->authHeaders());
+
+        $share = Share::where('slug', 'paused-share')->first();
+        $this->postJson("/api/v1/shares/{$share->id}/toggle", [], $this->authHeaders());
+
+        // Paused share should still appear in list
+        $response = $this->getJson('/api/v1/shares', $this->authHeaders());
+
+        $response->assertOk();
+
+        $slugs = collect($response->json('shares'))->pluck('slug')->toArray();
+        $this->assertContains('paused-share', $slugs);
+    }
+
+    public function test_toggle_from_disabled_to_enabled(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'toggle-reverse',
+            'expiry' => 13,
+        ], $this->authHeaders());
+
+        $share = Share::where('slug', 'toggle-reverse')->first();
+
+        // Pause
+        $this->postJson("/api/v1/shares/{$share->id}/toggle", [], $this->authHeaders());
+        $share->refresh();
+        $this->assertFalse((bool) $share->enabled);
+
+        // Enable
+        $response = $this->postJson("/api/v1/shares/{$share->id}/toggle", [], $this->authHeaders());
+        $response->assertOk()
+            ->assertJsonPath('message', 'Share enabled');
+
+        $share->refresh();
+        $this->assertTrue((bool) $share->enabled);
+    }
+
+    public function test_delete_share_removes_from_db(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'delete-from-db',
+        ], $this->authHeaders());
+
+        $share = Share::where('slug', 'delete-from-db')->first();
+        $this->assertNotNull($share);
+
+        $response = $this->deleteJson("/api/v1/shares/{$share->id}", [], $this->authHeaders());
+        $response->assertOk();
+
+        $this->assertDatabaseMissing('shares', ['id' => $share->id]);
+        $this->assertDatabaseMissing('shared_files', ['share_id' => $share->id]);
+    }
+
+    public function test_create_share_with_nonexistent_file_ids_returns_422(): void
+    {
+        $fakeId1 = \Illuminate\Support\Str::ulid();
+        $fakeId2 = \Illuminate\Support\Str::ulid();
+
+        $response = $this->postJson('/api/v1/shares', [
+            'fileList' => [$fakeId1, $fakeId2],
+            'slug' => 'bad-file-share',
+        ], $this->authHeaders());
+
+        $response->assertStatus(422)
+            ->assertJsonPath('message', 'Some files not found');
+    }
+
+    public function test_share_url_format(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        $response = $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'url-format-test',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+
+        $url = $response->json('url');
+        $this->assertStringEndsWith('/shared/url-format-test', $url);
+    }
+
     protected function tearDown(): void
     {
         Storage::disk('local')->deleteDirectory('');

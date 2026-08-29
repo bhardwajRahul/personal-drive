@@ -164,6 +164,75 @@ class ApiPolishTest extends BaseFeatureTest
         $response->assertHeader('Access-Control-Allow-Headers');
     }
 
+    // ─── Auth Requirements ───
+
+    public function test_all_api_routes_require_sanctum_token_or_session_auth(): void
+    {
+        $this->forceLogout();
+
+        $endpoints = [
+            ['GET', '/api/v1/files'],
+            ['GET', '/api/v1/search?q=test'],
+            ['GET', '/api/v1/favorites'],
+            ['POST', '/api/v1/favorites'],
+            ['GET', '/api/v1/shares'],
+            ['POST', '/api/v1/shares'],
+        ];
+
+        foreach ($endpoints as [$method, $uri]) {
+            $response = $this->json($method, $uri);
+            $this->assertContains(
+                $response->status(),
+                [401, 403],
+                "Expected 401/403 for {$method} {$uri} without auth, got {$response->status()}"
+            );
+        }
+    }
+
+    // ─── JSON Content Type ───
+
+    public function test_api_returns_json_content_type(): void
+    {
+        $response = $this->getJson('/api/v1/files', $this->authHeaders());
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'application/json');
+    }
+
+    // ─── Error Structure ───
+
+    public function test_api_error_response_has_message_key(): void
+    {
+        $response = $this->getJson('/api/v1/files/' . \Illuminate\Support\Str::ulid(), $this->authHeaders());
+
+        $response->assertNotFound();
+        $response->assertJsonStructure(['message']);
+    }
+
+    public function test_api_validation_error_has_errors_key(): void
+    {
+        $response = $this->postJson('/api/v1/files/create', [], $this->authHeaders());
+
+        $response->assertStatus(422);
+        $response->assertJsonStructure(['message', 'errors']);
+        $this->assertIsArray($response->json('errors'));
+    }
+
+    // ─── OPTIONS Preflight ───
+
+    public function test_options_request_preflight_works(): void
+    {
+        $response = $this->call('OPTIONS', '/api/v1/files', [], [], [], [
+            'HTTP_ORIGIN' => 'http://localhost:3000',
+            'HTTP_ACCESS_CONTROL_REQUEST_METHOD' => 'GET',
+            'HTTP_ACCESS_CONTROL_REQUEST_HEADERS' => 'Authorization, Content-Type',
+        ]);
+
+        $this->assertContains($response->getStatusCode(), [200, 204]);
+        $response->assertHeader('Access-Control-Allow-Origin');
+        $response->assertHeader('Access-Control-Allow-Methods');
+    }
+
     protected function tearDown(): void
     {
         \Illuminate\Support\Facades\Storage::disk('local')->deleteDirectory('');
