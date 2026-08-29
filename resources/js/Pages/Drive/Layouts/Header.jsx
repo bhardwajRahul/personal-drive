@@ -29,13 +29,6 @@ export default function Header() {
                                 Settings
                             </NavLink>
                             <NavLink
-                                href={route("admin.api-tokens")}
-                                active={route().current("admin.api-tokens")}
-                                className={` text-xs `}
-                            >
-                                API Tokens
-                            </NavLink>
-                            <NavLink
                                 href={route("drive.shares-all")}
                                 active={route().current("drive.shares-all")}
                                 className={` text-xs `}

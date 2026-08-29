@@ -9,22 +9,6 @@ use Illuminate\Support\Facades\Auth;
 
 class ApiTokenController extends Controller
 {
-    public function showPage()
-    {
-        $user = Auth::user();
-        $tokens = $user->tokens()
-            ->select('id', 'name', 'created_at', 'last_used_at', 'abilities')
-            ->get();
-
-        return inertia('Admin/ApiTokens', [
-            'tokens' => $tokens,
-            'flash' => [
-                'plain_text_token' => session('plain_text_token'),
-                'token_name' => session('token_name'),
-            ],
-        ]);
-    }
-
     public function store(StoreApiTokenRequest $request)
     {
         $token = $request->user()->createToken($request->name, ['api']);

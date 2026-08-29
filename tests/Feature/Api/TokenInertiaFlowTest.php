@@ -80,15 +80,14 @@ class TokenInertiaFlowTest extends BaseFeatureTest
         // Create a token via the controller action
         $this->webPost('/api-tokens', ['name' => 'display-test']);
 
-        // Follow the redirect back to the token page (no Inertia headers — matches existing GET test pattern)
-        $response = $this->get('/api-tokens');
+        // Follow the redirect chain: /api-tokens -> /admin-config?tab=tokens -> Settings page
+        $response = $this->followingRedirects()->get('/api-tokens');
 
         $response->assertOk();
         $response->assertInertia(
             fn($page) => $page
-                ->component('Admin/ApiTokens')
-                ->has('flash.plain_text_token')
-                ->where('flash.token_name', 'display-test')
+                ->component('Admin/Settings')
+                ->has('tokens')
         );
     }
 
@@ -96,11 +95,11 @@ class TokenInertiaFlowTest extends BaseFeatureTest
     {
         $this->makeUserUsingSetup();
 
-        $response = $this->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/api-tokens');
 
         $response->assertOk();
         $response->assertInertia(
-            fn($page) => $page->component('Admin/ApiTokens')
+            fn($page) => $page->component('Admin/Settings')
         );
     }
 
@@ -111,18 +110,22 @@ class TokenInertiaFlowTest extends BaseFeatureTest
         // Create a token — flash data is set in session
         $this->webPost('/api-tokens', ['name' => 'once-only']);
 
-        // First visit — token should be present
-        $firstVisit = $this->get('/api-tokens');
+        // First visit — follow redirect chain to Settings, token should be present
+        $firstVisit = $this->followingRedirects()->get('/api-tokens');
         $firstVisit->assertOk();
         $firstVisit->assertInertia(
-            fn($page) => $page->has('flash.plain_text_token')
+            fn($page) => $page
+                ->component('Admin/Settings')
+                ->has('flash.plain_text_token')
         );
 
         // Second visit — flash data should be consumed, no token shown
-        $secondVisit = $this->get('/api-tokens');
+        $secondVisit = $this->followingRedirects()->get('/api-tokens');
         $secondVisit->assertOk();
         $secondVisit->assertInertia(
-            fn($page) => $page->where('flash.plain_text_token', null)
+            fn($page) => $page
+                ->component('Admin/Settings')
+                ->where('flash.plain_text_token', null)
         );
     }
 }

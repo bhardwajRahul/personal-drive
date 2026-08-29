@@ -31,17 +31,17 @@ class InertiaApiTest extends BaseFeatureTest
     public function test_token_page_renders_correct_inertia_component(): void
     {
         $this->makeUser();
-        $response = $this->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/api-tokens');
         $response->assertOk();
         $response->assertInertia(
-            fn(Assert $page) => $page->component('Admin/ApiTokens')
+            fn(Assert $page) => $page->component('Admin/Settings')
         );
     }
 
     public function test_token_page_passes_empty_tokens_when_none_exist(): void
     {
         $this->makeUser();
-        $response = $this->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/api-tokens');
         $response->assertOk();
         $response->assertInertia(
             fn(Assert $page) => $page
@@ -56,7 +56,7 @@ class InertiaApiTest extends BaseFeatureTest
         $user->createToken('token-one', ['api']);
         $user->createToken('token-two', ['api']);
 
-        $response = $this->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/api-tokens');
         $response->assertOk();
         // Use viewData to access Inertia page props
         $page = json_decode(json_encode($response->viewData('page')), true);
@@ -68,7 +68,7 @@ class InertiaApiTest extends BaseFeatureTest
         $user = $this->makeUser();
         $user->createToken('my-token', ['api']);
 
-        $response = $this->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/api-tokens');
         $response->assertOk();
         $page = json_decode(json_encode($response->viewData('page')), true);
         $token = $page['props']['tokens'][0];
@@ -86,7 +86,7 @@ class InertiaApiTest extends BaseFeatureTest
         $user = $this->makeUser();
         $user->createToken('secret-token', ['api']);
 
-        $response = $this->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/api-tokens');
         $response->assertOk();
         $page = json_decode(json_encode($response->viewData('page')), true);
 
@@ -122,10 +122,10 @@ class InertiaApiTest extends BaseFeatureTest
             'password' => 'password',
         ]);
 
-        $response = $this->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/api-tokens');
         $response->assertOk();
         $response->assertInertia(
-            fn(Assert $page) => $page->component('Admin/ApiTokens')
+            fn(Assert $page) => $page->component('Admin/Settings')
         );
     }
 

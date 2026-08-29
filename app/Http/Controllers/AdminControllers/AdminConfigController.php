@@ -12,6 +12,7 @@ use App\Services\AdminConfigService;
 use App\Services\LocalFileStatsService;
 use App\Services\TwoFactorService;
 use App\Traits\FlashMessages;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,8 +47,13 @@ class AdminConfigController extends Controller
         $twoFactorStatus = $this->twoFactorService->getStatus();
         $show_two_factor_option = !config('app.disable_auth') ;
 
+        $user = Auth::user();
+        $tokens = $user->tokens()
+            ->select('id', 'name', 'created_at', 'last_used_at', 'abilities')
+            ->get();
+
         return Inertia::render(
-            'Admin/Config',
+            'Admin/Settings',
             [
             'storage_path' => $storagePath,
             'php_max_upload_size' => $this->adminConfigService->getPhpUploadMaxFilesize(),
@@ -55,7 +61,12 @@ class AdminConfigController extends Controller
             'php_max_file_uploads' => $this->adminConfigService->getPhpMaxFileUploads(),
             'setupMode' => $setupMode,
             'twoFactorStatus' => $twoFactorStatus,
-            'show_two_factor_option' => $show_two_factor_option
+            'show_two_factor_option' => $show_two_factor_option,
+            'tokens' => $tokens,
+            'flash' => [
+                'plain_text_token' => session('plain_text_token'),
+                'token_name' => session('token_name'),
+            ],
             ]
         );
     }

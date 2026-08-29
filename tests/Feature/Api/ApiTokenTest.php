@@ -31,10 +31,10 @@ class ApiTokenTest extends BaseFeatureTest
     {
         $user = $this->makeUser();
 
-        $response = $this->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/api-tokens');
         $response->assertOk();
         $response->assertInertia(fn($page) => $page
-            ->component('Admin/ApiTokens')
+            ->component('Admin/Settings')
             ->has('tokens', 0)
         );
     }

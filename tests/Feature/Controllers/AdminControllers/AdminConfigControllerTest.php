@@ -28,7 +28,7 @@ class AdminConfigControllerTest extends BaseFeatureTest
         $response->assertOk();
         $response->assertInertia(
             fn($page) => $page
-                ->component('Admin/Config')
+                ->component('Admin/Settings')
                 ->hasAll(
                     [
                     'storage_path',
@@ -36,6 +36,8 @@ class AdminConfigControllerTest extends BaseFeatureTest
                     'php_post_max_size',
                     'php_max_file_uploads',
                     'setupMode',
+                    'tokens',
+                    'flash',
                     ]
                 )
         );
