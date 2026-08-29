@@ -56,11 +56,28 @@ class FileController extends Controller
         $path = $request->validated('path') ?? '';
         $path = $this->pathService->cleanDrivePublicPath($path);
 
-        $files = LocalFile::getFilesForPublicPath($path);
+        $perPage = $request->validated('per_page', 50);
+
+        $paginator = LocalFile::getFilesForPublicPath($path)
+            ->paginate($perPage);
+
+        $files = LocalFile::modifyFileCollectionForDrive($paginator->getCollection());
 
         return response()->json([
             'files' => $files->values(),
             'path' => $path,
+            'links' => [
+                'first' => $paginator->url(1),
+                'last' => $paginator->url($paginator->lastPage()),
+                'prev' => $paginator->previousPageUrl(),
+                'next' => $paginator->nextPageUrl(),
+            ],
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
         ]);
     }
 
@@ -134,7 +151,7 @@ class FileController extends Controller
 
         $this->localFileStatsService->generateStats($publicPath, $files);
 
-        $newFiles = LocalFile::getFilesForPublicPath($publicPath);
+        $newFiles = LocalFile::getFilesForPublicPath($publicPath)->get();
 
         return response()->json([
             'message' => 'Files uploaded',
@@ -259,7 +276,7 @@ class FileController extends Controller
 
         $newFiles = LocalFile::getFilesForPublicPath(
             $this->pathService->cleanDrivePublicPath($destination)
-        );
+        )->get();
 
         return response()->json([
             'message' => 'Files moved',

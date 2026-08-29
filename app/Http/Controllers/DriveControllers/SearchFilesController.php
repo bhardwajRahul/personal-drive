@@ -14,7 +14,9 @@ class SearchFilesController extends Controller
     {
         $searchQuery = $request->validated('query') ?? '/';
 
-        $files = LocalFile::searchFiles($searchQuery);
+        $files = LocalFile::modifyFileCollectionForDrive(
+            LocalFile::searchFiles($searchQuery)->get()
+        );
 
         return Inertia::render(
             'Drive/DriveHome',

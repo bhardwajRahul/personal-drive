@@ -145,7 +145,7 @@ class LocalFileTest extends BaseFeatureTest
     {
         $this->uploadMultipleFiles('root', ['z_file.txt', 'a_file.txt']);
 
-        $files = LocalFile::getFilesForPublicPath('root');
+        $files = LocalFile::getFilesForPublicPath('root')->get();
 
         $this->assertCount(2, $files);
         $this->assertEquals('z_file.txt', $files->first()->filename); // Ordered by filename desc
@@ -224,7 +224,7 @@ class LocalFileTest extends BaseFeatureTest
     {
         $this->uploadMultipleFiles('', ['document.pdf', 'image.jpg', 'my_document.docx']);
 
-        $results = LocalFile::searchFiles('doc');
+        $results = LocalFile::searchFiles('doc')->get();
         $this->assertCount(2, $results);
         $this->assertTrue($results->contains('filename', 'document.pdf'));
         $this->assertTrue($results->contains('filename', 'my_document.docx'));

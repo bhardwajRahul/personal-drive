@@ -50,13 +50,10 @@ class LocalFile extends Model
         self::truncate();
     }
 
-    public static function getFilesForPublicPath(string $publicPath): Collection
+    public static function getFilesForPublicPath(string $publicPath): Builder
     {
-        $fileItems = self::where('public_path', $publicPath)
-            ->orderBy('filename', 'desc')
-            ->get();
-
-        return self::modifyFileCollectionForDrive($fileItems);
+        return self::where('public_path', $publicPath)
+            ->orderBy('filename', 'desc');
     }
 
     public static function modifyFileCollectionForDrive(Collection $fileItems): Collection
@@ -99,7 +96,7 @@ class LocalFile extends Model
         return $this->public_path ? $this->public_path . DS : '';
     }
 
-    public static function searchFiles(string $searchQuery, ?int $userId = null): Collection
+    public static function searchFiles(string $searchQuery, ?int $userId = null): Builder
     {
         $query = static::where('filename', 'like', '%' . $searchQuery . '%');
 
@@ -107,9 +104,7 @@ class LocalFile extends Model
             $query->where('user_id', $userId);
         }
 
-        $fileItems = $query->get();
-
-        return self::modifyFileCollectionForDrive($fileItems);
+        return $query;
     }
 
     public static function getIdsByLikePublicPath(string $search): array

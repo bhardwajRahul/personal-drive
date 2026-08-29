@@ -45,7 +45,7 @@ class Share extends Model
     }
 
 
-    public static function getAllUnExpired(): Collection
+    public static function getAllUnExpiredQuery(): Builder
     {
         return static::with(['sharedFiles.localFile:id,filename'])
             ->where(
@@ -54,8 +54,12 @@ class Share extends Model
                         ->orWhereNull('expiry');
                 }
             )
-            ->orderBy('created_at', 'desc')
-            ->get();
+            ->orderBy('created_at', 'desc');
+    }
+
+    public static function getAllUnExpired(): Collection
+    {
+        return static::getAllUnExpiredQuery()->get();
     }
 
 

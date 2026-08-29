@@ -61,6 +61,35 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (Throwable $e) {
+            // API routes return JSON errors
+            if (request()->is('api/*')) {
+                if ($e instanceof ValidationException) {
+                    return response()->json([
+                        'message' => 'Validation failed',
+                        'errors' => $e->errors(),
+                    ], 422);
+                }
+                if ($e instanceof AuthenticationException) {
+                    return response()->json(['message' => 'Unauthenticated'], 401);
+                }
+                if ($e instanceof NotFoundHttpException) {
+                    return response()->json(['message' => 'Not found'], 404);
+                }
+                if ($e instanceof ThrottleException) {
+                    return response()->json(['message' => 'Too many requests'], 429);
+                }
+                if ($e instanceof AuthorizationException) {
+                    return response()->json(['message' => 'Forbidden'], 403);
+                }
+                if (str_contains($e->getMessage(), 'readonly database') || str_contains($e->getMessage(), 'open database')) {
+                    return response()->json(['message' => 'Database error'], 500);
+                }
+                Log::error('API exception', ['exception' => $e]);
+
+                return response()->json(['message' => 'Internal server error'], 500);
+            }
+
+            // Web error handling
             if (($e instanceof ViewException) && str_contains($e->getMessage(), 'Vite manifest not found')) {
                 header(
                     'Location: /error?message=' .

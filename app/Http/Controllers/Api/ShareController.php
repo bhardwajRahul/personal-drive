@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\CreateShareRequest;
+use App\Http\Requests\Api\ListSharesRequest;
 use App\Models\LocalFile;
 use App\Models\Share;
 use App\Models\SharedFile;
@@ -14,11 +15,28 @@ use Illuminate\Support\Str;
 
 class ShareController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(ListSharesRequest $request): JsonResponse
     {
-        $shares = Share::getAllUnExpired();
+        $perPage = $request->validated('per_page', 50);
 
-        return response()->json(['shares' => $shares]);
+        $paginator = Share::getAllUnExpiredQuery()
+            ->paginate($perPage);
+
+        return response()->json([
+            'shares' => $paginator->items(),
+            'links' => [
+                'first' => $paginator->url(1),
+                'last' => $paginator->url($paginator->lastPage()),
+                'prev' => $paginator->previousPageUrl(),
+                'next' => $paginator->nextPageUrl(),
+            ],
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ]);
     }
 
     public function store(CreateShareRequest $request): JsonResponse

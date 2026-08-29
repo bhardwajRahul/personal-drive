@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\ListFavoritesRequest;
 use App\Http\Requests\Api\StoreFavoriteRequest;
 use App\Models\Favorite;
 use App\Models\LocalFile;
@@ -13,9 +14,31 @@ use Illuminate\Support\Collection;
 
 class FavoriteController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(ListFavoritesRequest $request): JsonResponse
     {
-        return response()->json(['favorites' => $this->favoritesFor($request->user())]);
+        $perPage = $request->validated('per_page', 50);
+
+        $paginator = Favorite::with('localFile:id,filename,public_path,is_dir')
+            ->where('user_id', $request->user()->id)
+            ->orderByDesc('favorited_at')
+            ->orderByDesc('id')
+            ->paginate($perPage);
+
+        return response()->json([
+            'favorites' => $paginator->items(),
+            'links' => [
+                'first' => $paginator->url(1),
+                'last' => $paginator->url($paginator->lastPage()),
+                'prev' => $paginator->previousPageUrl(),
+                'next' => $paginator->nextPageUrl(),
+            ],
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ]);
     }
 
     public function store(StoreFavoriteRequest $request): JsonResponse

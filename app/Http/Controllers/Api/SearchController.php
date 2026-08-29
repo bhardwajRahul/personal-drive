@@ -13,9 +13,25 @@ class SearchController extends Controller
     {
         $query = $request->validated('q');
         $userId = $request->user()->id;
+        $perPage = $request->validated('per_page', 50);
 
-        $files = LocalFile::searchFiles($query, $userId);
+        $paginator = LocalFile::searchFiles($query, $userId)
+            ->paginate($perPage);
 
-        return response()->json(['files' => $files]);
+        return response()->json([
+            'files' => $paginator->items(),
+            'links' => [
+                'first' => $paginator->url(1),
+                'last' => $paginator->url($paginator->lastPage()),
+                'prev' => $paginator->previousPageUrl(),
+                'next' => $paginator->nextPageUrl(),
+            ],
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ]);
     }
 }

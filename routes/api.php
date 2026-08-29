@@ -13,7 +13,7 @@ Route::middleware(['auth'])->prefix('v1')->group(function () {
     Route::delete('/tokens/{tokenId}', [ApiTokenController::class, 'destroy']);
 });
 
-Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('v1')->group(function () {
     Route::get('/files', [FileController::class, 'index']);
     Route::post('/files/upload', [FileController::class, 'upload']);
     Route::post('/files/create', [FileController::class, 'create']);

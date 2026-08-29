@@ -15,6 +15,7 @@ class SearchRequest extends FormRequest
     {
         return [
             'q' => ['required', 'string', 'max:255'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
     }
 }
