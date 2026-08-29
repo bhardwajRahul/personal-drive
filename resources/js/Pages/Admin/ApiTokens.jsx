@@ -57,9 +57,7 @@ export default function ApiTokens({ tokens, flash }) {
             <Header />
 
             <div className="p-1 sm:p-4 space-y-4 max-w-7xl mx-auto text-gray-200 bg-gray-800">
-                <h2 className="text-center text-4xl font-semibold text-gray-300 my-12 mb-20">
-                    API Tokens
-                </h2>
+
                 <main className="mx-auto max-w-7xl">
                     <div className="max-w-3xl mx-auto bg-blue-900/15 p-2 md:p-12 min-h-[500px] flex flex-col gap-y-8 md:gap-y-20">
                         {/* Create Token */}

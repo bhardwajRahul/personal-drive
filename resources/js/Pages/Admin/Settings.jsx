@@ -147,9 +147,6 @@ export default function Settings({
             {!setupMode && <Header/>}
 
             <div className="p-1 sm:p-4 space-y-4 max-w-7xl mx-auto text-gray-200 bg-gray-800">
-                <h2 className="text-center text-4xl font-semibold text-gray-300 my-12 mb-6">
-                    Admin Settings
-                </h2>
 
                 {/* Tab bar */}
                 <div className="flex gap-1 border-b border-blue-900/30 mb-6 max-w-3xl mx-auto">
@@ -868,97 +865,6 @@ php_value max_file_uploads 10000`}
                                     </div>
                                 </div>
 
-                                <div>
-                                    <h2 className="text-blue-200 text-2xl font-bold mt-2 mb-2">
-                                        About PersonalDrive
-                                    </h2>
-                                    <div className="bg-slate-900/50 p-4 md:p-6 rounded-lg border border-blue-900/30 space-y-4 text-gray-300 text-sm">
-                                        <p>
-                                            PersonalDrive is a self-hosted file management application built
-                                            with Laravel and React. It provides a web-based interface for
-                                            browsing, uploading, sharing, and organizing your files — with
-                                            a REST API for programmatic access.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <h2 className="text-blue-200 text-2xl font-bold mt-2 mb-2">
-                                        Getting Started
-                                    </h2>
-                                    <div className="bg-slate-900/50 p-4 md:p-6 rounded-lg border border-blue-900/30 space-y-4 text-gray-300 text-sm">
-                                        <div>
-                                            <h3 className="text-blue-300 font-semibold mb-1">1. Set your storage path</h3>
-                                            <p>
-                                                Go to the <strong>Config</strong> tab and set the storage path to
-                                                the local folder where your files live. This is the root directory
-                                                for all application data.
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <h3 className="text-blue-300 font-semibold mb-1">2. Configure upload limits</h3>
-                                            <p>
-                                                PHP default upload limits are often too small. See the upload limit
-                                                instructions in this <strong>Documentation</strong> tab to increase
-                                                them for your web server.
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <h3 className="text-blue-300 font-semibold mb-1">3. Create API tokens</h3>
-                                            <p>
-                                                For programmatic access, switch to the <strong>API Tokens</strong> tab
-                                                and create a token. Use it in the <code>Authorization</code> header
-                                                of your API requests.
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <h3 className="text-blue-300 font-semibold mb-1">4. Enable two-factor authentication</h3>
-                                            <p>
-                                                For added security, enable 2FA in the <strong>Config</strong> tab
-                                                under the Security section.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <h2 className="text-blue-200 text-2xl font-bold mt-2 mb-2">
-                                        FAQ
-                                    </h2>
-                                    <div className="bg-slate-900/50 p-4 md:p-6 rounded-lg border border-blue-900/30 space-y-4 text-gray-300 text-sm">
-                                        <div>
-                                            <h3 className="text-blue-300 font-semibold mb-1">
-                                                Will changing the storage path move my files?
-                                            </h3>
-                                            <p>
-                                                No. Changing the storage path does <span className="text-orange-400 font-bold">not</span> move
-                                                existing files. It only tells the application where to look for files.
-                                                Your existing files remain in their original location.
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <h3 className="text-blue-300 font-semibold mb-1">
-                                                What does "Refresh Database" do?
-                                            </h3>
-                                            <p>
-                                                It performs a full re-index of your storage directory: reindexes all
-                                                files and regenerates thumbnails. Note that this will also remove all
-                                                active shares.
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <h3 className="text-blue-300 font-semibold mb-1">
-                                                How do API tokens work?
-                                            </h3>
-                                            <p>
-                                                API tokens are used to authenticate REST API requests. Create a token
-                                                in the API Tokens tab, then include it as a Bearer token in the
-                                                <code>Authorization</code> header. Tokens are limited to 60 requests
-                                                per minute.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         )}
                     </div>
