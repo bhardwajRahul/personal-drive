@@ -152,6 +152,21 @@ class LocalFileTest extends BaseFeatureTest
         $this->assertEquals('a_file.txt', $files->last()->filename);
     }
 
+    public function test_modify_file_collection_for_drive_excludes_missing_files()
+    {
+        $this->uploadMultipleFiles('', ['existing.txt', 'ghost.txt']);
+        $existing = LocalFile::where('filename', 'existing.txt')->firstOrFail();
+        $ghost = LocalFile::where('filename', 'ghost.txt')->firstOrFail();
+
+        unlink($ghost->getPrivatePathNameForFile());
+
+        $collection = new Collection([$existing, $ghost]);
+        $modified = LocalFile::modifyFileCollectionForDrive($collection);
+
+        $this->assertCount(1, $modified);
+        $this->assertEquals('existing.txt', $modified->first()->filename);
+    }
+
     public function test_modify_file_collection_for_drive_adds_size_text()
     {
         $this->uploadMultipleFiles('', ['file.txt']);
@@ -170,6 +185,25 @@ class LocalFileTest extends BaseFeatureTest
 
         $dir = LocalFile::factory()->make(['size' => 0, 'is_dir' => true]);
         $this->assertEquals('', LocalFile::getItemSizeText($dir));
+    }
+
+    public function test_modify_file_collection_for_guest_excludes_missing_files()
+    {
+        $this->uploadMultipleFiles('', ['shared/existing.txt', 'shared/ghost.txt']);
+        $existing = LocalFile::where('filename', 'existing.txt')
+            ->where('public_path', 'shared')
+            ->firstOrFail();
+        $ghost = LocalFile::where('filename', 'ghost.txt')
+            ->where('public_path', 'shared')
+            ->firstOrFail();
+
+        unlink($ghost->getPrivatePathNameForFile());
+
+        $collection = new Collection([$existing, $ghost]);
+        $modified = LocalFile::modifyFileCollectionForGuest($collection, '/shared');
+
+        $this->assertCount(1, $modified);
+        $this->assertEquals('existing.txt', $modified->first()->filename);
     }
 
     public function test_modify_file_collection_for_guest_modifies_public_path()

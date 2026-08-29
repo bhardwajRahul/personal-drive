@@ -61,7 +61,9 @@ class LocalFile extends Model
 
     public static function modifyFileCollectionForDrive(Collection $fileItems): Collection
     {
-        return $fileItems->map(
+        return $fileItems->filter(
+            fn ($item) => file_exists($item->getPrivatePathNameForFile())
+        )->map(
             function ($item) {
                 $item->sizeText = self::getItemSizeText($item);
                 $item->date = filemtime($item->getPrivatePathNameForFile());
@@ -77,7 +79,9 @@ class LocalFile extends Model
 
     public static function modifyFileCollectionForGuest(Collection $fileItems, string $publicPath = ''): Collection
     {
-        return $fileItems->map(
+        return $fileItems->filter(
+            fn ($item) => file_exists($item->getPrivatePathNameForFile())
+        )->map(
             function ($item) use ($publicPath) {
                 $item->sizeText = self::getItemSizeText($item);
                 $item->date = filemtime($item->getPrivatePathNameForFile());
