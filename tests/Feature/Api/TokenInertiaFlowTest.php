@@ -80,7 +80,7 @@ class TokenInertiaFlowTest extends BaseFeatureTest
         // Create a token via the controller action
         $this->webPost('/api-tokens', ['name' => 'display-test']);
 
-        // Follow the redirect chain: /api-tokens -> /admin-config?tab=tokens -> Settings page
+        // Follow the redirect chain: /api-tokens -> /admin-config -> Settings page
         $response = $this->followingRedirects()->get('/api-tokens');
 
         $response->assertOk();

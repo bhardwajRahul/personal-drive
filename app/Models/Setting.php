@@ -4,15 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use PragmaRX\Google2FA\Google2FA;
 
 class Setting extends Model
 {
     use HasFactory;
 
     public static string $storagePath = 'storage_path';
-    public static string $twoFactorStatusKey = 'google2fa_enabled';
-    public static string $twoFaAuthSecret = 'google2fa_secret';
+
     public static string $oldStoragePath = '';
 
     protected $fillable = ['key', 'value'];

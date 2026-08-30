@@ -17,14 +17,16 @@ function FileDropzone({ onFilesAccepted }) {
             }
         };
 
+        const handleDrop = () => setIsDragActive(false);
+
         window.addEventListener("dragenter", handleDragEnter);
         window.addEventListener("dragleave", handleDragLeave);
-        window.addEventListener("drop", () => setIsDragActive(false));
+        window.addEventListener("drop", handleDrop);
 
         return () => {
             window.removeEventListener("dragenter", handleDragEnter);
             window.removeEventListener("dragleave", handleDragLeave);
-            window.removeEventListener("drop", () => setIsDragActive(false));
+            window.removeEventListener("drop", handleDrop);
         };
     }, []);
 

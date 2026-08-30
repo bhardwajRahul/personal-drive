@@ -108,7 +108,7 @@ class UploadService
 
         if (!$existingFile) {
             $itemDetails = $this->localFileStatsService->getFileItemDetails($newFile);
-            $existingFile = $this->updateOrCreateLocalFile($itemDetails, ['filename', 'public_path']);
+            $existingFile = LocalFile::updateOrCreate($itemDetails, ['filename', 'public_path']);
         } else {
             $this->localFileStatsService->updateFileStats($existingFile, $newFile);
         }
@@ -126,11 +126,6 @@ class UploadService
         );
     }
 
-
-    public function updateOrCreateLocalFile(array $attributes, array $values): LocalFile
-    {
-        return LocalFile::updateOrCreate($attributes, $values);
-    }
 
     public function cleanOldTempFiles(): bool
     {

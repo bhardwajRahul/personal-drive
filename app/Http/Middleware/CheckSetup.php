@@ -17,7 +17,6 @@ class CheckSetup
             || DB::table('users')->count() === 0) 
             && !$request->is('setup*', 'error')
         ) {
-            //            config(['session.driver' => 'array']);
             return redirect('/setup/account');
         }
 

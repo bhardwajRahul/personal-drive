@@ -19,7 +19,6 @@ const ToggleTwoFactorModal = ({isTwoFaModalOpen, setIsTwoFaModalOpen, twoFactorS
                 route("admin-config.two-factor-qr"),
             );
             setQrSvg(response.data.message);
-            console.log(response.data);
 
         };
         generateQr();

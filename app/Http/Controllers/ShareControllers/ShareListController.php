@@ -4,8 +4,6 @@ namespace App\Http\Controllers\ShareControllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Share;
-use App\Services\LocalFileStatsService;
-use App\Services\PathService;
 use App\Traits\FlashMessages;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -13,18 +11,6 @@ use Inertia\Response;
 class ShareListController extends Controller
 {
     use FlashMessages;
-
-    protected PathService $pathService;
-
-    protected LocalFileStatsService $localFileStatsService;
-
-    public function __construct(
-        PathService $pathService,
-        LocalFileStatsService $localFileStatsService
-    ) {
-        $this->localFileStatsService = $localFileStatsService;
-        $this->pathService = $pathService;
-    }
 
     public function index(): Response
     {

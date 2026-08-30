@@ -48,7 +48,6 @@ const RenameModal = ({
                 onSuccess: () => {
                     handleCloseRenameModal(false);
                 },
-                onFinish: () => {},
             },
         );
     };

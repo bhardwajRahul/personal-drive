@@ -23,7 +23,6 @@ class User extends Authenticatable
         'username',
         'is_admin',
         'password',
-        'secret',
         'google2fa_secret',
         'google2fa_enabled'
     ];

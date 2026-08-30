@@ -6,9 +6,7 @@ function useSearchUtil() {
         router.post(
             "/search-files",
             { query: searchText },
-            {
-                onSuccess: () => {},
-            },
+            {},
         );
     }
 

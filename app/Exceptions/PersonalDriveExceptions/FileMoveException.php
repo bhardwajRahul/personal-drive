@@ -18,10 +18,6 @@ class FileMoveException extends PersonalDriveException
     {
         return new self('Could not move files');
     }
-    public static function destinationExists(): self
-    {
-        return new self('Move stopped. An item with the same name already exists.');
-    }
 
     public static function cannotMoveIntoItself(): self
     {

@@ -6,7 +6,7 @@ import { DeleteIcon, PauseIcon, PlayIcon } from "lucide-react";
 import CopyShareLinkButton from "@/Pages/Drive/Components/Shares/CopyShareLinkButton.jsx";
 
 export default function AllShares({ shares, totalShares }) {
-    let shareRoot = window.location.hostname + "/shared/";
+    let shareRoot = window.location.origin + "/shared/";
 
     function handlePause(id) {
         router.post(
@@ -16,7 +16,6 @@ export default function AllShares({ shares, totalShares }) {
                 preserveState: true,
                 preserveScroll: true,
                 only: ["shares", "flash"],
-                onFinish: () => {},
             },
         );
     }
@@ -29,7 +28,6 @@ export default function AllShares({ shares, totalShares }) {
                 preserveState: true,
                 preserveScroll: true,
                 only: ["shares", "flash"],
-                onFinish: () => {},
             },
         );
     }

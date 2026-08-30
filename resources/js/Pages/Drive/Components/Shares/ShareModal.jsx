@@ -50,7 +50,6 @@ const ShareModal = ({
                     }
                     // show link from response and its associated controls like copy. also button to see all shares
                 },
-                onFinish: () => {},
             },
         );
     };

@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\AuthControllers\AuthenticatedSessionController;
-use App\Http\Controllers\AuthControllers\PasswordController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['throttle:login','guest'])->group(function () {
@@ -10,8 +9,6 @@ Route::middleware(['throttle:login','guest'])->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-    Route::put('password', [PasswordController::class, 'update'])->name('password.update');
-
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
 });

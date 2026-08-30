@@ -4,8 +4,6 @@ namespace App\Http\Controllers\AuthControllers;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AdminRequests\TwoFactorCodeCheckRequest;
-use App\Services\AdminConfigService;
-use App\Services\LocalFileStatsService;
 use App\Services\TwoFactorService;
 use App\Traits\FlashMessages;
 use Illuminate\Http\Request;
@@ -13,15 +11,12 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Inertia\Inertia;
-use PragmaRX\Google2FA\Google2FA;
 
 class TwoFactorController extends Controller
 {
     use FlashMessages;
 
     protected TwoFactorService $twoFactorService;
-
-    protected LocalFileStatsService $localFileStatsService;
 
     public function __construct(
         TwoFactorService $twoFactorService
