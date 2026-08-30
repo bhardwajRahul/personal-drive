@@ -21,14 +21,17 @@ class CommonRequest extends FormRequest
         ];
     }
 
-    public static function baseNameRule(): array
+    public static function baseNameRule(bool $allowSlash = false): array
     {
-        return [
+        $rules = [
             'string',
             'regex:' . self::SAFE_CHARS_REGEX,
-            'not_regex:' . self::DOTS_OR_SPACES_REGEX,
             'not_regex:' . self::TRAVERSAL_REGEX,
         ];
+        if (!$allowSlash) {
+            $rules[] = 'not_regex:' . self::DOTS_OR_SPACES_REGEX;
+        }
+        return $rules;
     }
 
 
@@ -61,11 +64,11 @@ class CommonRequest extends FormRequest
         ];
     }
 
-    public static function pathRules(): array
+    public static function pathRules(bool $allowSlash = false): array
     {
         return [
             'nullable',
-            ...self::baseNameRule(),
+            ...self::baseNameRule($allowSlash),
             'max:512',
         ];
     }

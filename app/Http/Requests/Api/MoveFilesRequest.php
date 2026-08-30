@@ -17,7 +17,7 @@ class MoveFilesRequest extends FormRequest
         return [
             'fileList' => 'required|array',
             'fileList.*' => 'ulid',
-            'destination' => ['required', ...CommonRequest::pathRules()],
+            'destination' => ['required', ...CommonRequest::pathRules(allowSlash: true)],
         ];
     }
 }

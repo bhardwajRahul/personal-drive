@@ -261,6 +261,9 @@ class FileController extends Controller
     {
         $fileIds = $request->validated('fileList');
         $destination = $request->validated('destination');
+        if ($destination === '/') {
+            $destination = '';
+        }
 
         $this->fileMoveService->moveFiles($fileIds, $destination);
 
