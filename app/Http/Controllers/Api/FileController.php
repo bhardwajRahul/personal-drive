@@ -17,6 +17,7 @@ use App\Services\FileRenameService;
 use App\Services\LocalFileStatsService;
 use App\Services\PathService;
 use App\Services\UploadService;
+use App\Traits\HasJsonPagination;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,7 @@ use SplFileInfo;
 
 class FileController extends Controller
 {
+    use HasJsonPagination;
     protected PathService $pathService;
     protected FileOperationsService $fileOperationsService;
     protected LocalFileStatsService $localFileStatsService;
@@ -62,23 +64,9 @@ class FileController extends Controller
             ->paginate($perPage);
 
         $files = LocalFile::modifyFileCollectionForDrive($paginator->getCollection());
+        $paginator->setCollection($files->values());
 
-        return response()->json([
-            'files' => $files->values(),
-            'path' => $path,
-            'links' => [
-                'first' => $paginator->url(1),
-                'last' => $paginator->url($paginator->lastPage()),
-                'prev' => $paginator->previousPageUrl(),
-                'next' => $paginator->nextPageUrl(),
-            ],
-            'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'last_page' => $paginator->lastPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-            ],
-        ]);
+        return $this->paginateJson($paginator, 'files', ['path' => $path]);
     }
 
     public function show(string $id): JsonResponse
@@ -128,8 +116,7 @@ class FileController extends Controller
             $relativeBasePath = $this->pathService->getPlusContentRoot($publicPath);
             $relativeDestinationPath = $relativeBasePath . $sanitizedPath;
 
-            if (
-                $this->fileOperationsService->directoryExists($relativeDestinationPath)
+            if ($this->fileOperationsService->directoryExists($relativeDestinationPath)
                 || $this->fileOperationsService->pathExistsAsFile(
                     $relativeBasePath,
                     dirname($sanitizedPath)
@@ -153,10 +140,12 @@ class FileController extends Controller
 
         $newFiles = LocalFile::getFilesForPublicPath($publicPath)->get();
 
-        return response()->json([
+        return response()->json(
+            [
             'message' => 'Files uploaded',
             'files' => $newFiles->values(),
-        ]);
+            ]
+        );
     }
 
     private function uploadToDir(string $destinationDir, mixed $file, string $publicPath): int
@@ -213,10 +202,12 @@ class FileController extends Controller
             ->where('public_path', $publicPath)
             ->first();
 
-        return response()->json([
+        return response()->json(
+            [
             'message' => ucfirst($type) . ' created',
             'file' => $file,
-        ]);
+            ]
+        );
     }
 
     public function download(string $id)
@@ -235,11 +226,13 @@ class FileController extends Controller
 
         $mimeType = mime_content_type($privatePath) ?: 'application/octet-stream';
 
-        return response()->streamDownload(function () use ($privatePath) {
-            readfile($privatePath);
-        }, $file->filename, [
+        return response()->streamDownload(
+            function () use ($privatePath) {
+                readfile($privatePath);
+            }, $file->filename, [
             'Content-Type' => $mimeType,
-        ]);
+            ]
+        );
     }
 
     public function destroy(string $id): JsonResponse
@@ -256,10 +249,12 @@ class FileController extends Controller
 
         $localFiles->delete();
 
-        return response()->json([
+        return response()->json(
+            [
             'message' => 'Files deleted',
             'deleted' => $filesDeleted,
-        ]);
+            ]
+        );
     }
 
     public function move(MoveFilesRequest $request): JsonResponse
@@ -267,21 +262,18 @@ class FileController extends Controller
         $fileIds = $request->validated('fileList');
         $destination = $request->validated('destination');
 
-        try {
-            $this->fileMoveService->moveFiles($fileIds, $destination);
-        } catch (Exception $e) {
-            Log::error('File move failed', ['exception' => $e]);
-            return response()->json(['message' => $e->getMessage()], 422);
-        }
+        $this->fileMoveService->moveFiles($fileIds, $destination);
 
         $newFiles = LocalFile::getFilesForPublicPath(
             $this->pathService->cleanDrivePublicPath($destination)
         )->get();
 
-        return response()->json([
+        return response()->json(
+            [
             'message' => 'Files moved',
             'files' => $newFiles->values(),
-        ]);
+            ]
+        );
     }
 
     public function rename(RenameFileRequest $request, string $id): JsonResponse
@@ -304,10 +296,12 @@ class FileController extends Controller
         $file->sizeText = LocalFile::getItemSizeText($file);
         $file->date = filemtime($file->getPrivatePathNameForFile());
 
-        return response()->json([
+        return response()->json(
+            [
             'message' => 'File renamed',
             'file' => $file,
-        ]);
+            ]
+        );
     }
 
     public function save(SaveFileRequest $request, string $id): JsonResponse
@@ -329,23 +323,20 @@ class FileController extends Controller
             return response()->json(['message' => 'Could not save file'], 422);
         }
 
-        try {
-            if (@file_put_contents($privatePathFile, $content) === false) {
-                return response()->json(['message' => 'Could not save file'], 422);
-            }
-
-            $fileInfo = new SplFileInfo($privatePathFile);
-            $this->localFileStatsService->updateFileStats($file, $fileInfo);
-
-            $file->refresh();
-
-            return response()->json([
-                'message' => 'File saved',
-                'file' => $file,
-            ]);
-        } catch (Exception $e) {
-            Log::error('Failed to save file', ['exception' => $e, 'file_id' => $id]);
+        if (file_put_contents($privatePathFile, $content) === false) {
             return response()->json(['message' => 'Could not save file'], 422);
         }
+
+        $fileInfo = new SplFileInfo($privatePathFile);
+        $this->localFileStatsService->updateFileStats($file, $fileInfo);
+
+        $file->refresh();
+
+        return response()->json(
+            [
+            'message' => 'File saved',
+            'file' => $file,
+            ]
+        );
     }
 }

@@ -45,10 +45,12 @@ class DownloadController extends Controller
         if ($localFiles->isEmpty()) {
             return ResponseHelper::json('Could not find files to download', false);
         }
-        $missingIds = array_values(array_diff(
-            $fileKeyArray,
-            $localFiles->filter(fn (LocalFile $file) => file_exists($file->getPrivatePathNameForFile()))->pluck('id')->all()
-        ));
+        $missingIds = array_values(
+            array_diff(
+                $fileKeyArray,
+                $localFiles->filter(fn (LocalFile $file) => file_exists($file->getPrivatePathNameForFile()))->pluck('id')->all()
+            )
+        );
         if ($missingIds) {
             $message = 'Could not find: ' . implode(', ', array_slice($missingIds, 0, 3));
             $remaining = count($missingIds) - 3;

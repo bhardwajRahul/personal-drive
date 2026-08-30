@@ -8,12 +8,14 @@ use App\Http\Requests\Api\StoreFavoriteRequest;
 use App\Models\Favorite;
 use App\Models\LocalFile;
 use App\Models\User;
+use App\Traits\HasJsonPagination;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 class FavoriteController extends Controller
 {
+    use HasJsonPagination;
     public function index(ListFavoritesRequest $request): JsonResponse
     {
         $perPage = $request->validated('per_page', 50);
@@ -24,21 +26,7 @@ class FavoriteController extends Controller
             ->orderByDesc('id')
             ->paginate($perPage);
 
-        return response()->json([
-            'favorites' => $paginator->items(),
-            'links' => [
-                'first' => $paginator->url(1),
-                'last' => $paginator->url($paginator->lastPage()),
-                'prev' => $paginator->previousPageUrl(),
-                'next' => $paginator->nextPageUrl(),
-            ],
-            'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'last_page' => $paginator->lastPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-            ],
-        ]);
+        return $this->paginateJson($paginator, 'favorites');
     }
 
     public function store(StoreFavoriteRequest $request): JsonResponse
@@ -51,18 +39,22 @@ class FavoriteController extends Controller
             ->get();
 
         if ($localFiles->count() !== count($localFileIds)) {
-            return response()->json([
+            return response()->json(
+                [
                 'message' => 'One or more files do not belong to you.',
-            ], 422);
+                ], 422
+            );
         }
 
         $favoritedAt = now();
         Favorite::upsert(
-            $localFiles->map(fn (LocalFile $localFile) => [
+            $localFiles->map(
+                fn (LocalFile $localFile) => [
                 'user_id' => $user->id,
                 'local_file_id' => $localFile->id,
                 'favorited_at' => $favoritedAt,
-            ])->all(),
+                ]
+            )->all(),
             ['user_id', 'local_file_id'],
             ['updated_at']
         );

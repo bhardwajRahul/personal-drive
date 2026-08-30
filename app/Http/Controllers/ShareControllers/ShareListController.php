@@ -30,9 +30,11 @@ class ShareListController extends Controller
     {
         $shares = Share::getAllUnExpired();
 
-        return Inertia::render('Drive/Shares/AllShares', [
+        return Inertia::render(
+            'Drive/Shares/AllShares', [
             'shares' => $shares,
             'totalShares' => $shares->count(),
-        ]);
+            ]
+        );
     }
 }

@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Api\ApiTokenController;
 use App\Http\Controllers\Api\FavoriteController;
 use App\Http\Controllers\Api\FileController;
 use App\Http\Controllers\Api\SearchController;

@@ -69,10 +69,12 @@ class UploadController extends Controller
         }
 
         if ($duplicatesDetected > 0) {
-            session([
+            session(
+                [
                 'new_file_copied_num' => $successfulUploads,
                 'duplicate_files_num' => $duplicatesDetected,
-            ]);
+                ]
+            );
             $this->localFileStatsService->generateStats($publicPath, $files);
             return $this->success('Duplicates Detected' . ($conflicts ? ' (' . $conflictsMessage . ')' : ''), ['replaceAbort' => true]);
         }
@@ -108,8 +110,7 @@ class UploadController extends Controller
             $relativeBasePath = $this->pathService->getPlusContentRoot($publicPath);
             $relativeDestinationPath = $relativeBasePath . $fileNameWithUploadedPath;
 
-            if (
-                $this->fileOperationsService->directoryExists($relativeDestinationPath)
+            if ($this->fileOperationsService->directoryExists($relativeDestinationPath)
                 || $this->fileOperationsService->pathExistsAsFile(
                     $relativeBasePath,
                     dirname($fileNameWithUploadedPath)

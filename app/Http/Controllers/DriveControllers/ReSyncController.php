@@ -26,11 +26,13 @@ class ReSyncController extends Controller
     public function index(): RedirectResponse
     {
         try {
-            $filesUpdated = DB::transaction(function (): int {
-                LocalFile::clearTable();
-                Share::truncate();
-                return $this->localFileStatsService->generateStats();
-            });
+            $filesUpdated = DB::transaction(
+                function (): int {
+                    LocalFile::clearTable();
+                    Share::truncate();
+                    return $this->localFileStatsService->generateStats();
+                }
+            );
         } catch (UnexpectedValueException) {
             return $this->error(
                 'Storage scan failed because a file or folder cannot be accessed. Check its permissions and try again.'

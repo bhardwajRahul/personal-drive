@@ -8,6 +8,7 @@ use App\Http\Requests\Api\ListSharesRequest;
 use App\Models\LocalFile;
 use App\Models\Share;
 use App\Models\SharedFile;
+use App\Traits\HasJsonPagination;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -15,6 +16,7 @@ use Illuminate\Support\Str;
 
 class ShareController extends Controller
 {
+    use HasJsonPagination;
     public function index(ListSharesRequest $request): JsonResponse
     {
         $perPage = $request->validated('per_page', 50);
@@ -22,21 +24,7 @@ class ShareController extends Controller
         $paginator = Share::getAllUnExpiredQuery()
             ->paginate($perPage);
 
-        return response()->json([
-            'shares' => $paginator->items(),
-            'links' => [
-                'first' => $paginator->url(1),
-                'last' => $paginator->url($paginator->lastPage()),
-                'prev' => $paginator->previousPageUrl(),
-                'next' => $paginator->nextPageUrl(),
-            ],
-            'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'last_page' => $paginator->lastPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-            ],
-        ]);
+        return $this->paginateJson($paginator, 'shares');
     }
 
     public function store(CreateShareRequest $request): JsonResponse
@@ -57,10 +45,12 @@ class ShareController extends Controller
         $share = Share::add($slug, $hashedPassword, $expiry, $localFiles->first()->public_path);
         SharedFile::addArray($localFiles, $share->id);
 
-        return response()->json([
+        return response()->json(
+            [
             'share' => $share,
             'url' => url('/shared/' . $slug),
-        ]);
+            ]
+        );
     }
 
     public function destroy(Request $request, string $id): JsonResponse
@@ -80,9 +70,11 @@ class ShareController extends Controller
 
         $share->forceFill(['enabled' => !$share->enabled])->save();
 
-        return response()->json([
+        return response()->json(
+            [
             'share' => $share->fresh(),
             'message' => $share->fresh()->enabled ? 'Share enabled' : 'Share paused',
-        ]);
+            ]
+        );
     }
 }

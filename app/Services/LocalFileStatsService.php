@@ -37,8 +37,7 @@ class LocalFileStatsService
         string      $publicPath,
         string      $privatePath,
         SplFileInfo $file
-    ): array
-    {
+    ): array {
         return [
             'filename' => $itemName,
             'is_dir' => $isDir ? 1 : 0,
@@ -105,9 +104,11 @@ class LocalFileStatsService
 
         $items = collect($this->createFileIterator($privatePath));
         if ($destinationFullPaths) {
-            $items = $items->filter(function ($item) use ($destinationFullPaths) {
-                return in_array($item->getPathname(), $destinationFullPaths);
-            });
+            $items = $items->filter(
+                function ($item) use ($destinationFullPaths) {
+                    return in_array($item->getPathname(), $destinationFullPaths);
+                }
+            );
         }
         return $items
             ->map(fn($item) => $this->getFileItemDetails($item))

@@ -78,6 +78,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 if ($e instanceof ThrottleException) {
                     return response()->json(['message' => 'Too many requests'], 429);
                 }
+                if ($e instanceof PersonalDriveException) {
+                    return response()->json(['message' => $e->getMessage()], 422);
+                }
                 if ($e instanceof AuthorizationException) {
                     return response()->json(['message' => 'Forbidden'], 403);
                 }
