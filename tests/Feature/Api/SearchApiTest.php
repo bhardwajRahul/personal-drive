@@ -140,7 +140,7 @@ class SearchApiTest extends BaseFeatureTest
             'file_type' => 'text',
         ]);
 
-        // Search for "exclusive" — both files would match if scoping didn't work
+        // Search for "exclusive" - both files would match if scoping didn't work
         $response = $this->getJson('/api/v1/search?q=exclusive', $this->authHeaders());
 
         $response->assertOk();
@@ -183,7 +183,7 @@ class SearchApiTest extends BaseFeatureTest
 
         $response->assertOk();
 
-        // Should not crash — either find it or return empty
+        // Should not crash - either find it or return empty
         $this->assertIsArray($response->json('files'));
     }
 

@@ -2,21 +2,17 @@
 
 namespace App\Http\Controllers\DriveControllers;
 
-use App\Exceptions\PersonalDriveExceptions\UploadFileException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DriveRequests\CreateItemRequest;
 use App\Http\Requests\DriveRequests\ReplaceAbortRequest;
 use App\Http\Requests\DriveRequests\UploadRequest;
-use App\Models\Setting;
 use App\Services\LocalFileStatsService;
 use App\Services\PathService;
 use App\Services\FileOperationsService;
 use App\Services\UploadService;
 use App\Traits\FlashMessages;
-use Error;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Redirect;
-use Symfony\Component\HttpFoundation\File\Exception\FileException;
 
 
 class UploadController extends Controller
@@ -119,50 +115,22 @@ class UploadController extends Controller
                 $conflicts[] = $fileNameWithUploadedPath;
             } elseif (file_exists($destinationFullPath) && $tempStorageDirFull) {
                 $duplicatesDetected++;
-
-                $this->uploadToDir(
+                $this->uploadService->uploadToDir(
                     $tempDirFullPath,
                     $file,
                     $tempDirRelativePath
                 );
             } else {
-                $successfulUploads += $this->uploadToDir(
+                $this->uploadService->uploadToDir(
                     dirname($destinationFullPath),
                     $file,
                     dirname($relativeDestinationPath)
                 );
+                $successfulUploads++;
             }
         }
 
         return [$successfulUploads, $duplicatesDetected, $conflicts];
-    }
-
-    private function uploadToDir(string $destinationDir, mixed $file, string $publicPath): int
-    {
-        $successfulUploads = 0;
-        // $destinationDir is absolute: never write through a symlink that
-        // escapes the storage root.
-        if (!$this->pathService->isWithinStorageRoot($destinationDir)) {
-            throw UploadFileException::pathOutsideStorageRoot();
-        }
-        if (!$this->fileOperationsService->directoryExists($publicPath)) {
-            if (!$this->pathService->isWithinStorageRoot(Setting::getStoragePath() . DS . $publicPath)) {
-                throw UploadFileException::pathOutsideStorageRoot();
-            }
-            $this->fileOperationsService->makeFolder($publicPath);
-        }
-        $sanitizeFileName = $this->pathService->sanitizeFileName($file->getClientOriginalName());
-        try {
-            if ($file->move($destinationDir, $sanitizeFileName)) {
-                chmod($destinationDir . DS . $sanitizeFileName, 0640);
-                $successfulUploads++;
-            }
-        } catch (FileException) {
-            throw UploadFileException::pathTooLong();
-        } catch (Error) {
-            throw UploadFileException::outOfMemory();
-        }
-        return $successfulUploads;
     }
 
     public function createItem(CreateItemRequest $request): RedirectResponse

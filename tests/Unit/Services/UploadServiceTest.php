@@ -8,6 +8,7 @@ use App\Services\UploadService;
 use Illuminate\Filesystem\Filesystem;
 use App\Services\PathService;
 use App\Services\LocalFileStatsService;
+use App\Services\FileOperationsService;
 use App\Services\ThumbnailService;
 
 class UploadServiceTest extends TestCase
@@ -30,6 +31,7 @@ class UploadServiceTest extends TestCase
         return new UploadService(
             Mockery::mock(PathService::class),
             Mockery::mock(LocalFileStatsService::class),
+            Mockery::mock(FileOperationsService::class),
             Mockery::mock(ThumbnailService::class),
             $this->filesystem
         );

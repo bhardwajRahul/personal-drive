@@ -14,6 +14,8 @@ class Favorite extends Model
 
     protected $fillable = ['user_id', 'local_file_id'];
 
+    protected $hidden = ['user_id', 'local_file_id'];
+
     protected static function booted(): void
     {
         static::creating(

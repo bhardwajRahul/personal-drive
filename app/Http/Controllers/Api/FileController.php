@@ -18,7 +18,6 @@ use App\Services\LocalFileStatsService;
 use App\Services\PathService;
 use App\Services\UploadService;
 use App\Traits\HasJsonPagination;
-use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -97,17 +96,16 @@ class FileController extends Controller
             return response()->json(['message' => 'Could not find storage path'], 422);
         }
 
-        $uploadedFiles = [];
-        $errors = [];
+        $conflicts = [];
+        $successfulUploads = 0;
 
-        $tempStorageDirFull = $this->uploadService->setTempStorageDirAbs();
+        $this->uploadService->setTempStorageDirAbs();
 
         foreach ($files as $file) {
             $sanitizedPath = $this->pathService->sanitizeUploadPath($file->getClientOriginalPath());
             $sanitizedName = $this->pathService->sanitizeFileName($file->getClientOriginalName());
 
             if ($sanitizedPath === '' || $sanitizedName === '') {
-                $errors[] = $file->getClientOriginalName();
                 continue;
             }
 
@@ -122,54 +120,43 @@ class FileController extends Controller
                     dirname($sanitizedPath)
                 )
             ) {
+                $conflicts[] = $sanitizedPath;
                 $tempDirFullPath = dirname(
                     $this->uploadService->getTempStorageDirAbs() . DS . ($publicPath ? $publicPath . DS : '') . $sanitizedPath
                 );
                 $tempDirRelativePath = $this->uploadService->getTempStorageDir() . DS . $publicPath;
-                $this->uploadToDir($tempDirFullPath, $file, $tempDirRelativePath);
+                try {
+                    $this->uploadService->uploadToDir($tempDirFullPath, $file, $tempDirRelativePath);
+                } catch (\Exception) {
+                    // skip failed temp uploads
+                }
                 continue;
             }
 
-            $result = $this->uploadToDir($destDir, $file, dirname($relativeDestinationPath));
-            if ($result > 0) {
-                $uploadedFiles[] = $sanitizedName;
+            try {
+                $this->uploadService->uploadToDir($destDir, $file, dirname($relativeDestinationPath));
+                $successfulUploads++;
+            } catch (\Exception) {
+                // skip failed uploads
             }
         }
 
         $this->localFileStatsService->generateStats($publicPath, $files);
 
+        $message = match (true) {
+            $successfulUploads > 0 => 'Files uploaded: ' . $successfulUploads . ' out of ' . count($files),
+            default => 'Some/All files upload failed',
+        };
+        if ($conflicts) {
+            $message .= ' (Conflicts: ' . implode(', ', array_slice($conflicts, 0, 3)) . ')';
+        }
+
         $newFiles = LocalFile::getFilesForPublicPath($publicPath)->get();
 
-        return response()->json(
-            [
-            'message' => 'Files uploaded',
+        return response()->json([
+            'message' => $message,
             'files' => $newFiles->values(),
-            ]
-        );
-    }
-
-    private function uploadToDir(string $destinationDir, mixed $file, string $publicPath): int
-    {
-        if (! $this->pathService->isWithinStorageRoot($destinationDir)) {
-            return 0;
-        }
-
-        if (! $this->fileOperationsService->directoryExists($publicPath)) {
-            $this->fileOperationsService->makeFolder($publicPath);
-        }
-
-        $sanitizedName = $this->pathService->sanitizeFileName($file->getClientOriginalName());
-
-        try {
-            if ($file->move($destinationDir, $sanitizedName)) {
-                chmod($destinationDir . DS . $sanitizedName, 0640);
-                return 1;
-            }
-        } catch (Exception) {
-            // skip failed uploads
-        }
-
-        return 0;
+        ]);
     }
 
     public function create(CreateFileRequest $request): JsonResponse

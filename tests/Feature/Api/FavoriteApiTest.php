@@ -207,7 +207,7 @@ class FavoriteApiTest extends BaseFeatureTest
         $response->assertOk()
             ->assertJsonCount(3, 'favorites');
 
-        // API returns Favorite objects — get local_file.id from each
+        // API returns Favorite objects - get local_file.id from each
         $returnedFileIds = collect($response->json('favorites'))->pluck('local_file.id')->toArray();
         $expectedFileIds = [
             $files[2]->id,  // most recent favorited_at

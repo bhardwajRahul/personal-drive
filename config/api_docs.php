@@ -39,7 +39,7 @@ return [
                 ['method' => 'POST', 'url' => '/api/v1/files/create', 'description' => 'Create file/folder', 'params' => 'name, type, path'],
                 ['method' => 'GET', 'url' => '/api/v1/files/:id/download', 'description' => 'Download file', 'params' => ''],
                 ['method' => 'DELETE', 'url' => '/api/v1/files/:id', 'description' => 'Delete file', 'params' => ''],
-                ['method' => 'POST', 'url' => '/api/v1/files/move', 'description' => 'Move files', 'params' => 'fileList[], destination'],
+                ['method' => 'POST', 'url' => '/api/v1/files/move', 'description' => 'Move files. Use "/" for root destination.', 'params' => 'fileList[], destination (/ = root)'],
                 ['method' => 'POST', 'url' => '/api/v1/files/:id/rename', 'description' => 'Rename file', 'params' => 'name'],
                 ['method' => 'POST', 'url' => '/api/v1/files/:id/save', 'description' => 'Save file content', 'params' => 'content'],
             ],

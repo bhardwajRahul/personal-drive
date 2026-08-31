@@ -157,7 +157,7 @@ class TokenE2ETest extends BaseFeatureTest
         ]);
         $tokenB = $userB->createToken('token-b', ['api'])->plainTextToken;
 
-        // User B lists files — should not see User A's files
+        // User B lists files - should not see User A's files
         // (current app doesn't scope by user_id, so they CAN see them)
         // But at minimum, auth works independently
         $response = $this->getJson('/api/v1/files', [

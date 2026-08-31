@@ -152,14 +152,13 @@ const PasswordProtectedUploadModal = ({
         <Modal
             isOpen={isModalOpen}
             onClose={handleClose}
-            title="Upload Password Protected"
+            title="Upload Encrypted"
             classes="max-w-md w-full"
         >
             <form onSubmit={handleSubmit} className="space-y-4 text-gray-300">
                 <p className="text-sm text-gray-400/90">
-                    Files are zipped and encrypted with AES-256 in your browser
-                    before uploading. Keep the password safe — it cannot be
-                    recovered.
+                    Files are zipped and AES-256 encrypted in your browser
+                    before upload. Your password cannot be recovered.
                 </p>
 
                 <div

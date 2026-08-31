@@ -23,7 +23,7 @@ class InertiaApiTest extends BaseFeatureTest
         ]);
         $this->logout();
 
-        $response = $this->get('/api-tokens');
+        $response = $this->get('/admin-config');
         $response->assertStatus(302);
         $response->assertRedirect();
     }
@@ -31,7 +31,7 @@ class InertiaApiTest extends BaseFeatureTest
     public function test_token_page_renders_correct_inertia_component(): void
     {
         $this->makeUser();
-        $response = $this->followingRedirects()->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/admin-config');
         $response->assertOk();
         $response->assertInertia(
             fn(Assert $page) => $page->component('Admin/Settings')
@@ -41,7 +41,7 @@ class InertiaApiTest extends BaseFeatureTest
     public function test_token_page_passes_empty_tokens_when_none_exist(): void
     {
         $this->makeUser();
-        $response = $this->followingRedirects()->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/admin-config');
         $response->assertOk();
         $response->assertInertia(
             fn(Assert $page) => $page
@@ -56,7 +56,7 @@ class InertiaApiTest extends BaseFeatureTest
         $user->createToken('token-one', ['api']);
         $user->createToken('token-two', ['api']);
 
-        $response = $this->followingRedirects()->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/admin-config');
         $response->assertOk();
         // Use viewData to access Inertia page props
         $page = json_decode(json_encode($response->viewData('page')), true);
@@ -68,7 +68,7 @@ class InertiaApiTest extends BaseFeatureTest
         $user = $this->makeUser();
         $user->createToken('my-token', ['api']);
 
-        $response = $this->followingRedirects()->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/admin-config');
         $response->assertOk();
         $page = json_decode(json_encode($response->viewData('page')), true);
         $token = $page['props']['tokens'][0];
@@ -86,7 +86,7 @@ class InertiaApiTest extends BaseFeatureTest
         $user = $this->makeUser();
         $user->createToken('secret-token', ['api']);
 
-        $response = $this->followingRedirects()->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/admin-config');
         $response->assertOk();
         $page = json_decode(json_encode($response->viewData('page')), true);
 
@@ -108,7 +108,7 @@ class InertiaApiTest extends BaseFeatureTest
         $this->actingAs($nonAdmin);
         $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
 
-        $response = $this->get('/api-tokens');
+        $response = $this->get('/admin-config');
         $response->assertStatus(302);
         $response->assertRedirect(route('rejected', ['message' => 'You do not have admin access']));
     }
@@ -122,7 +122,7 @@ class InertiaApiTest extends BaseFeatureTest
             'password' => 'password',
         ]);
 
-        $response = $this->followingRedirects()->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/admin-config');
         $response->assertOk();
         $response->assertInertia(
             fn(Assert $page) => $page->component('Admin/Settings')

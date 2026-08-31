@@ -81,7 +81,7 @@ class TokenInertiaFlowTest extends BaseFeatureTest
         $this->webPost('/api-tokens', ['name' => 'display-test']);
 
         // Follow the redirect chain: /api-tokens -> /admin-config -> Settings page
-        $response = $this->followingRedirects()->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/admin-config');
 
         $response->assertOk();
         $response->assertInertia(
@@ -95,7 +95,7 @@ class TokenInertiaFlowTest extends BaseFeatureTest
     {
         $this->makeUserUsingSetup();
 
-        $response = $this->followingRedirects()->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/admin-config');
 
         $response->assertOk();
         $response->assertInertia(
@@ -107,11 +107,11 @@ class TokenInertiaFlowTest extends BaseFeatureTest
     {
         $this->makeUserUsingSetup();
 
-        // Create a token — flash data is set in session
+        // Create a token - flash data is set in session
         $this->webPost('/api-tokens', ['name' => 'once-only']);
 
-        // First visit — follow redirect chain to Settings, token should be present
-        $firstVisit = $this->followingRedirects()->get('/api-tokens');
+        // First visit - follow redirect chain to Settings, token should be present
+        $firstVisit = $this->followingRedirects()->get('/admin-config');
         $firstVisit->assertOk();
         $firstVisit->assertInertia(
             fn($page) => $page
@@ -119,8 +119,8 @@ class TokenInertiaFlowTest extends BaseFeatureTest
                 ->has('flash.plain_text_token')
         );
 
-        // Second visit — flash data should be consumed, no token shown
-        $secondVisit = $this->followingRedirects()->get('/api-tokens');
+        // Second visit - flash data should be consumed, no token shown
+        $secondVisit = $this->followingRedirects()->get('/admin-config');
         $secondVisit->assertOk();
         $secondVisit->assertInertia(
             fn($page) => $page

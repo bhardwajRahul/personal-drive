@@ -14,8 +14,10 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\ViewException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 if (!defined('DS')) {
     define('DS', DIRECTORY_SEPARATOR);
@@ -81,7 +83,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 if ($e instanceof PersonalDriveException) {
                     return response()->json(['message' => $e->getMessage()], 422);
                 }
-                if ($e instanceof AuthorizationException) {
+                if ($e instanceof AccessDeniedHttpException) {
                     return response()->json(['message' => 'Forbidden'], 403);
                 }
                 if (str_contains($e->getMessage(), 'readonly database') || str_contains($e->getMessage(), 'open database')) {

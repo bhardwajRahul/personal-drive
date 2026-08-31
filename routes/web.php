@@ -36,8 +36,7 @@ Route::middleware([OptionalAuth::class, 'web', 'auth', CheckAdmin::class])->grou
         [AdminControllers\AdminConfigController::class, 'twoFactorCodeDisable']
     )->middleware('throttle:two-factor')->name('admin-config.two-factor-code-disable');
 
-    // Token management (session auth — browser UI)
-    Route::get('/api-tokens', fn() => redirect()->route('admin-config'))->name('admin.api-tokens');
+    // Token management (session auth - browser UI)
     Route::post('/api-tokens', [AdminControllers\ApiTokenController::class, 'store'])->name('admin.api-tokens.store');
     Route::delete('/api-tokens/{tokenId}', [AdminControllers\ApiTokenController::class, 'destroy'])->name('admin.api-tokens.destroy');
     // Drive routes

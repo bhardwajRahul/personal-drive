@@ -17,7 +17,7 @@ class ApiTokenTest extends BaseFeatureTest
 
     public function test_unauthenticated_user_cannot_access_token_endpoints(): void
     {
-        $get = $this->get('/api-tokens');
+        $get = $this->get('/admin-config');
         $get->assertRedirect();
 
         $post = $this->post('/api-tokens', ['name' => 'test']);
@@ -31,7 +31,7 @@ class ApiTokenTest extends BaseFeatureTest
     {
         $user = $this->makeUser();
 
-        $response = $this->followingRedirects()->get('/api-tokens');
+        $response = $this->followingRedirects()->get('/admin-config');
         $response->assertOk();
         $response->assertInertia(fn($page) => $page
             ->component('Admin/Settings')

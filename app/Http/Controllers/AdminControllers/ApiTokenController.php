@@ -17,7 +17,6 @@ class ApiTokenController extends Controller
             [
             'plain_text_token' => $token->plainTextToken,
             'token_name' => $token->accessToken->name,
-            'token_id' => $token->accessToken->id,
             ]
         );
     }

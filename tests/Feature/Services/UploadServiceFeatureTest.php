@@ -89,6 +89,7 @@ class UploadServiceFeatureTest extends BaseFeatureTest
         $this->uploadService = new UploadService(
             $this->pathService,
             $this->statsService,
+            $this->fileOperationsService,
             $this->thumbService,
             $this->filesystem
         );

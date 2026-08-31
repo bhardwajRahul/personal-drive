@@ -28,3 +28,11 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('v1')->group(functio
     Route::delete('/shares/{id}', [ShareController::class, 'destroy']);
     Route::post('/shares/{id}/toggle', [ShareController::class, 'toggle']);
 });
+
+// Test-only routes for exception handling verification
+if (app()->environment('testing')) {
+    Route::middleware(['auth:sanctum'])->prefix('v1')->group(function () {
+        Route::get('/_test/missing', fn () => throw new \Symfony\Component\HttpKernel\Exception\NotFoundHttpException('test'));
+        Route::get('/_test/forbidden', fn () => throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException('test'));
+    });
+}

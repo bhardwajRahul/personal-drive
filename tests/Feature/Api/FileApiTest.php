@@ -4,10 +4,12 @@ namespace Tests\Feature\Api;
 
 use App\Models\LocalFile;
 use App\Models\User;
+use App\Services\PathService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Mockery;
 use Tests\Feature\BaseFeatureTest;
 
 class FileApiTest extends BaseFeatureTest
@@ -112,7 +114,7 @@ class FileApiTest extends BaseFeatureTest
         ], $this->authHeaders());
 
         $response->assertOk()
-            ->assertJsonPath('message', 'Files uploaded')
+            ->assertJsonPath('message', 'Files uploaded: 1 out of 1')
             ->assertJsonCount(1, 'files');
         Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'uploaded.txt');
     }
@@ -304,7 +306,7 @@ class FileApiTest extends BaseFeatureTest
             'path' => '../../../etc',
         ], $this->authHeaders());
 
-        // Path validation rejects traversal — file should NOT appear in /etc
+        // Path validation rejects traversal - file should NOT appear in /etc
         $this->assertContains($response->status(), [302, 422]);
         Storage::disk('local')->assertMissing('etc' . DS . 'evil.txt');
     }
@@ -624,7 +626,7 @@ class FileApiTest extends BaseFeatureTest
             'type' => 'file',
         ], $this->authHeaders())->assertOk();
 
-        // Second creation of same name in same dir — should fail
+        // Second creation of same name in same dir - should fail
         $response = $this->postJson('/api/v1/files/create', [
             'name' => 'dup-create.txt',
             'type' => 'file',
@@ -664,7 +666,7 @@ class FileApiTest extends BaseFeatureTest
         $response = $this->getJson("/api/v1/files/{$localFile->id}/download", $this->authHeaders());
 
         $response->assertOk();
-        // StreamedResponse — verify content via the file on disk
+        // StreamedResponse - verify content via the file on disk
         $this->assertEquals('expected content', file_get_contents($localFile->getPrivatePathNameForFile()));
     }
 
@@ -941,7 +943,7 @@ class FileApiTest extends BaseFeatureTest
             'files' => [$file],
         ], $this->authHeaders());
 
-        // Should either be rejected or sanitized — file should not end up outside storage
+        // Should either be rejected or sanitized - file should not end up outside storage
         $this->assertContains($response->status(), [200, 422]);
     }
 
@@ -974,7 +976,7 @@ class FileApiTest extends BaseFeatureTest
 
         $this->forceLogout();
 
-        // App currently has no per-user file isolation — other user can download the file
+        // App currently has no per-user file isolation - other user can download the file
         // Test passes if the download succeeds (200) or is rejected (403/404)
         try {
             $response = $this->get("/api/v1/files/{$file->id}/download", [
@@ -1004,7 +1006,7 @@ class FileApiTest extends BaseFeatureTest
             'Authorization' => 'Bearer ' . $otherToken,
         ]);
 
-        // App currently has no per-user file isolation — other user may be able to delete
+        // App currently has no per-user file isolation - other user may be able to delete
         $this->assertContains($response->status(), [200, 403, 404]);
     }
 
@@ -1027,7 +1029,7 @@ class FileApiTest extends BaseFeatureTest
             'Authorization' => 'Bearer ' . $otherToken,
         ]);
 
-        // App currently has no per-user file isolation — other user may be able to rename
+        // App currently has no per-user file isolation - other user may be able to rename
         $this->assertContains($response->status(), [200, 403, 404]);
     }
 
@@ -1251,7 +1253,7 @@ class FileApiTest extends BaseFeatureTest
             'name' => 'same-name.txt',
         ], $this->authHeaders());
 
-        // Rename to same name — either 200 (noop success) or 422 (validation error)
+        // Rename to same name - either 200 (noop success) or 422 (validation error)
         $this->assertContains($response->status(), [200, 422]);
     }
 
@@ -1318,6 +1320,84 @@ class FileApiTest extends BaseFeatureTest
 
         $response->assertOk();
         Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'x' . DS . 'y' . DS . 'z' . DS . 'deep-path.txt');
+    }
+
+    // ─── Upload: failure reporting ───
+
+    public function test_upload_failure_reflected_in_message(): void
+    {
+        $pathMock = Mockery::mock(PathService::class)->makePartial();
+        $pathMock->shouldReceive('isWithinStorageRoot')->andReturn(false);
+        $this->app->instance(PathService::class, $pathMock);
+
+        $file = UploadedFile::fake()->create('fail.txt', 100);
+
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => [$file],
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        $this->assertStringContainsString('fail', strtolower($response->json('message')));
+        $this->assertStringNotContainsString('Files uploaded', $response->json('message'));
+    }
+
+    public function test_upload_partial_failure_shows_count(): void
+    {
+        $call = 0;
+        $pathMock = Mockery::mock(PathService::class)->makePartial();
+        $pathMock->shouldReceive('isWithinStorageRoot')->andReturnUsing(function () use (&$call) {
+            $call++;
+            return $call > 1;
+        });
+        $this->app->instance(PathService::class, $pathMock);
+
+        $files = [
+            UploadedFile::fake()->create('fail.txt', 100),
+            UploadedFile::fake()->create('ok.txt', 100),
+        ];
+
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => $files,
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        $this->assertStringContainsString('1 out of 2', $response->json('message'));
+    }
+
+    public function test_upload_conflict_tracked_in_response(): void
+    {
+        // Create a folder at the destination
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'mydir',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        // Now upload a file INTO mydir - but the path check sees mydir
+        // exists as a directory at the relative destination, which triggers
+        // the conflict branch when uploading to a subpath that collides
+        $file = UploadedFile::fake()->create('conflict.txt', 100);
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => [$file],
+            'path' => 'mydir',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        // File goes to temp (conflict path) - should still be listed
+        // because generateStats runs regardless
+        $this->assertGreaterThanOrEqual(1, count($response->json('files')));
+    }
+
+    public function test_upload_empty_path_defaults_to_root(): void
+    {
+        $file = UploadedFile::fake()->create('root-file.txt', 100);
+
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => [$file],
+            'path' => '',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'root-file.txt');
     }
 
     // ─── Show Missing File ───

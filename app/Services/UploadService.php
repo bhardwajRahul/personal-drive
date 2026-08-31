@@ -2,17 +2,21 @@
 
 namespace App\Services;
 
+use App\Exceptions\PersonalDriveExceptions\UploadFileException;
 use App\Models\LocalFile;
 use App\Models\Setting;
+use Error;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
 use Symfony\Component\Finder\SplFileInfo;
+use Symfony\Component\HttpFoundation\File\Exception\FileException;
 
 class UploadService
 {
     protected LocalFileStatsService $localFileStatsService;
     private PathService $pathService;
+    private FileOperationsService $fileOperationsService;
     private ThumbnailService $thumbnailService;
     private Filesystem $filesystem;
 
@@ -22,11 +26,13 @@ class UploadService
     public function __construct(
         PathService $pathService,
         LocalFileStatsService $localFileStatsService,
+        FileOperationsService $fileOperationsService,
         ThumbnailService $thumbnailService,
         Filesystem $filesystem
     ) {
         $this->pathService = $pathService;
         $this->localFileStatsService = $localFileStatsService;
+        $this->fileOperationsService = $fileOperationsService;
         $this->thumbnailService = $thumbnailService;
         $this->filesystem = $filesystem;
     }
@@ -108,7 +114,7 @@ class UploadService
 
         if (!$existingFile) {
             $itemDetails = $this->localFileStatsService->getFileItemDetails($newFile);
-            $existingFile = LocalFile::updateOrCreate($itemDetails, ['filename', 'public_path']);
+            $existingFile = LocalFile::updateOrCreate($itemDetails);
         } else {
             $this->localFileStatsService->updateFileStats($existingFile, $newFile);
         }
@@ -126,6 +132,30 @@ class UploadService
         );
     }
 
+
+    public function uploadToDir(string $destinationDir, mixed $file, string $publicPath): void
+    {
+        if (! $this->pathService->isWithinStorageRoot($destinationDir)) {
+            throw UploadFileException::pathOutsideStorageRoot();
+        }
+        if (! $this->fileOperationsService->directoryExists($publicPath)) {
+            if (! $this->pathService->isWithinStorageRoot(Setting::getStoragePath() . DS . $publicPath)) {
+                throw UploadFileException::pathOutsideStorageRoot();
+            }
+            $this->fileOperationsService->makeFolder($publicPath);
+        }
+        $name = $this->pathService->sanitizeFileName($file->getClientOriginalName());
+        try {
+            if ($file->move($destinationDir, $name)) {
+                chmod($destinationDir . DS . $name, 0640);
+                return;
+            }
+        } catch (FileException) {
+            throw UploadFileException::pathTooLong();
+        } catch (Error) {
+            throw UploadFileException::outOfMemory();
+        }
+    }
 
     public function cleanOldTempFiles(): bool
     {

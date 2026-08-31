@@ -61,7 +61,7 @@ class FileOperationsServiceTest extends TestCase
     {
         $service = $this->createServiceWithNoFilesystem();
 
-        // Should return void without throwing — kills line 45 FalseToTrue + RemoveEarlyReturn
+        // Should return void without throwing - kills line 45 FalseToTrue + RemoveEarlyReturn
         $service->move('src.txt', 'dest.txt');
         $this->assertTrue(true);
     }
@@ -70,7 +70,7 @@ class FileOperationsServiceTest extends TestCase
     {
         $service = $this->createServiceWithNoFilesystem();
 
-        // Should return false — kills line 64 FalseToTrue + RemoveEarlyReturn
+        // Should return false - kills line 64 FalseToTrue + RemoveEarlyReturn
         $this->assertFalse($service->makeFile('test.txt'));
     }
 
@@ -82,7 +82,7 @@ class FileOperationsServiceTest extends TestCase
         \Illuminate\Support\Facades\DB::disableQueryLog();
         \Illuminate\Support\Facades\DB::enableQueryLog();
 
-        // Should return false — kills line 81 FalseToTrue
+        // Should return false - kills line 81 FalseToTrue
         $this->assertFalse($service->makeFolder('testdir'));
 
         // Original code: makeFileSystem() called once → 1 Setting query, then returns early
@@ -105,7 +105,7 @@ class FileOperationsServiceTest extends TestCase
             Setting::where('key', Setting::$storagePath)
                 ->update(['value' => $tempDir]);
 
-            // Fresh service — makeFileSystem() builds a real local filesystem
+            // Fresh service - makeFileSystem() builds a real local filesystem
             $service = new FileOperationsService();
 
             $result = $service->makeFile('empty_test.txt');

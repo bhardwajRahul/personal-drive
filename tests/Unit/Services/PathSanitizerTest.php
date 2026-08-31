@@ -16,7 +16,7 @@ class PathSanitizerTest extends TestCase
     }
 
     // ============================================================
-    // sanitizeUploadPath — getClientOriginalPath() = path + filename
+    // sanitizeUploadPath - getClientOriginalPath() = path + filename
     // ============================================================
 
     public function test_simple_filename_passes(): void
@@ -80,7 +80,7 @@ class PathSanitizerTest extends TestCase
     }
 
     // ============================================================
-    // sanitizeFileName — getClientOriginalName() = just filename
+    // sanitizeFileName - getClientOriginalName() = just filename
     // ============================================================
 
     public function test_valid_filename_passes(): void

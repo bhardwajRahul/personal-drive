@@ -175,7 +175,7 @@ const UploadMenu = ({ path, setStatusMessage, files }) => {
                                 className="text-left block w-full px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 active:bg-gray-800"
                                 role="menuitem"
                             >
-                                Upload Password Protected
+                                Upload Encrypted
                             </button>
                         </div>
                     </div>

@@ -71,7 +71,7 @@ class LocalFileStatsServiceTest extends TestCase
             $file
         );
 
-        // filename must be exactly the itemName passed in — proves concat didn't lose right side
+        // filename must be exactly the itemName passed in - proves concat didn't lose right side
         $this->assertEquals('testfile.txt', $result['filename']);
         $this->assertEquals('public', $result['public_path']);
         $this->assertEquals($this->tmpDir . '/', $result['private_path']);
@@ -139,7 +139,7 @@ class LocalFileStatsServiceTest extends TestCase
 
         $localFile = LocalFile::first();
         $this->assertNotNull($localFile);
-        // filename must be exactly the item name — confirms create() was called with correct data
+        // filename must be exactly the item name - confirms create() was called with correct data
         $this->assertEquals('myfile.txt', $localFile->filename);
         $this->assertEquals(0, $localFile->is_dir);
         $this->assertEquals('pub', $localFile->public_path);
