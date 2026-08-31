@@ -7,7 +7,7 @@ import UploadLimitsDocs from "@/Pages/Admin/Components/UploadLimitsDocs.jsx";
 
 const TABS = [
     ["config", "Config"],
-    ["tokens", "API Tokens"],
+    ["tokens", "REST API"],
     ["docs", "Documentation"],
 ];
 
