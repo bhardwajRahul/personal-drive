@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const METHOD_COLORS = {
     GET: "text-green-400 bg-green-900/40 border-green-700/50",
@@ -65,7 +65,6 @@ function EndpointCard({ endpoint }) {
             id={`ep-${endpoint.title.replace(/\s+/g, "-").toLowerCase()}`}
             className="bg-slate-900/60 border border-blue-900/30 rounded-lg p-5 space-y-4 scroll-mt-4"
         >
-            {/* Header */}
             <div>
                 <h4 className="text-blue-200 text-base font-semibold mb-1">
                     {endpoint.title}
@@ -79,31 +78,21 @@ function EndpointCard({ endpoint }) {
             </div>
 
             <p className="text-gray-400 text-sm">{endpoint.description}</p>
-
-            {/* Query Params */}
             <ParamsTable params={endpoint.params} title="Query Parameters" />
-
-            {/* Request Body */}
             <ParamsTable params={endpoint.body} title="Request Body" />
 
-            {/* Response */}
             {endpoint.response && (
                 <div>
-                    <h4 className="text-gray-300 text-sm font-semibold mb-2">
-                        Response
-                    </h4>
+                    <h4 className="text-gray-300 text-sm font-semibold mb-2">Response</h4>
                     <pre className="bg-blue-950 border border-blue-800 rounded p-3 text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
                         {endpoint.response}
                     </pre>
                 </div>
             )}
 
-            {/* Curl Example */}
             {endpoint.curl && (
                 <div>
-                    <h4 className="text-gray-300 text-sm font-semibold mb-2">
-                        Example
-                    </h4>
+                    <h4 className="text-gray-300 text-sm font-semibold mb-2">Example</h4>
                     <pre className="bg-blue-950 border border-blue-800 rounded p-3 text-xs text-green-300 overflow-x-auto whitespace-pre-wrap">
                         {endpoint.curl}
                     </pre>
@@ -113,76 +102,88 @@ function EndpointCard({ endpoint }) {
     );
 }
 
+function epId(title) {
+    return `ep-${title.replace(/\s+/g, "-").toLowerCase()}`;
+}
+
 export default function ApiDocs({ sections = [] }) {
-    const [activeSection, setActiveSection] = useState(
-        sections[0]?.title || null
-    );
+    const [openSection, setOpenSection] = useState(null);
+    const clickedRef = useRef(false);
+
+    useEffect(() => {
+        const onScroll = () => {
+            if (clickedRef.current) return;
+            for (const section of sections) {
+                const el = document.getElementById(epId(section.endpoints[0]?.title));
+                if (el && el.getBoundingClientRect().top <= 120) {
+                    setOpenSection(section.title);
+                }
+            }
+        };
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, [sections]);
+
+    const toggle = (title) => {
+        clickedRef.current = true;
+        setTimeout(() => (clickedRef.current = false), 1000);
+        const next = openSection === title ? null : title;
+        setOpenSection(next);
+        if (next) {
+            const section = sections.find((s) => s.title === next);
+            const el = document.getElementById(epId(section?.endpoints[0]?.title));
+            el?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+    };
 
     return (
         <div className="bg-slate-900/50 p-4 md:p-6 rounded-lg border border-blue-900/30">
-            {/* Auth info */}
             <div className="mb-6">
-                <h3 className="text-blue-300 text-lg font-semibold mb-2">
-                    Authentication
-                </h3>
-                <p className="text-gray-400 text-sm mb-2">
-                    Include your token in every request:
-                </p>
+                <h3 className="text-blue-300 text-lg font-semibold mb-2">Authentication</h3>
+                <p className="text-gray-400 text-sm mb-2">Include your token in every request:</p>
                 <div className="bg-blue-950 p-3 rounded border border-blue-800 text-sm font-mono text-gray-300">
                     Authorization: Bearer {"<your-token>"}
                 </div>
-                <p className="text-gray-500 text-xs mt-2">
-                    Rate limit: 60 requests per minute per token.
-                </p>
+                <p className="text-gray-500 text-xs mt-2">Rate limit: 100 requests per minute per token.</p>
             </div>
 
-            {/* Sidebar + Content */}
             <div className="flex gap-6 relative">
-                {/* Sidebar */}
                 <nav className="hidden lg:block w-44 shrink-0">
                     <div className="sticky top-4 space-y-1">
                         {sections.map((section) => (
                             <div key={section.title}>
                                 <button
-                                    onClick={() => setActiveSection(section.title)}
+                                    onClick={() => toggle(section.title)}
                                     className={`w-full text-left text-sm font-semibold px-2 py-1.5 rounded transition-colors ${
-                                        activeSection === section.title
+                                        openSection === section.title
                                             ? "text-blue-300 bg-blue-900/20"
                                             : "text-gray-400 hover:text-gray-200 hover:bg-slate-800/50"
                                     }`}
                                 >
                                     {section.title}
                                 </button>
-                                {activeSection === section.title && (
-                                    <ul className="space-y-0.5 ml-1 border-l border-blue-900/40 pl-2 mt-0.5 mb-2">
+                                <div className={`grid transition-all duration-200 ${openSection === section.title ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                                    <ul className="space-y-0.5 ml-1 border-l border-blue-900/40 pl-2 mt-0.5 mb-2 overflow-hidden">
                                         {section.endpoints.map((ep) => (
                                             <li key={ep.title}>
-                                                <a
-                                                    href={`#ep-${ep.title.replace(/\s+/g, "-").toLowerCase()}`}
-                                                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 py-0.5"
-                                                >
+                                                <a href={`#${epId(ep.title)}`} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-200 py-0.5">
                                                     <MethodBadge method={ep.method} />
                                                     <span>{ep.title}</span>
                                                 </a>
                                             </li>
                                         ))}
                                     </ul>
-                                )}
+                                </div>
                             </div>
                         ))}
                     </div>
                 </nav>
 
-                {/* Content */}
                 <div className="flex-1 min-w-0 space-y-8">
                     {sections.map((section) => (
-                        <div key={section.title}>
-                            <h3 className="text-blue-300 text-lg font-semibold mb-1">
-                                {section.title}
-                            </h3>
-                            <p className="text-gray-400 text-sm mb-4">
-                                {section.description}
-                            </p>
+                        <div key={section.title} id={epId(section.title)}>
+                            <h3 className="text-blue-300 text-lg font-semibold mb-1">{section.title}</h3>
+                            <p className="text-gray-400 text-sm mb-4">{section.description}</p>
                             <div className="space-y-4">
                                 {section.endpoints.map((ep) => (
                                     <EndpointCard key={ep.title} endpoint={ep} />
