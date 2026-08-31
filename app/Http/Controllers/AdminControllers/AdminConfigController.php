@@ -53,7 +53,7 @@ class AdminConfigController extends Controller
             ->get();
 
         $server_configs = config('api_docs.server_configs');
-        $api_endpoints = config('api_docs.api_endpoints');
+        $api_sections = config('api_docs.api_sections');
 
         return Inertia::render(
             'Admin/Settings',
@@ -67,7 +67,7 @@ class AdminConfigController extends Controller
                 'show_two_factor_option' => $show_two_factor_option,
                 'tokens' => $tokens,
                 'server_configs' => $server_configs,
-                'api_endpoints' => $api_endpoints,
+                'api_sections' => $api_sections,
                 'flash' => [
                     'plain_text_token' => session('plain_text_token'),
                     'token_name' => session('token_name'),

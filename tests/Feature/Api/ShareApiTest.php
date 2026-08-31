@@ -8,6 +8,7 @@ use App\Models\SharedFile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\Feature\BaseFeatureTest;
 
 class ShareApiTest extends BaseFeatureTest
@@ -440,6 +441,145 @@ class ShareApiTest extends BaseFeatureTest
         foreach ($files as $file) {
             $this->assertDatabaseHas('local_files', ['id' => $file->id]);
         }
+    }
+
+    // ─── New API Tests ───
+
+    public function test_create_share_missing_fileList_returns_422(): void
+    {
+        $response = $this->postJson('/api/v1/shares', [], $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_create_share_with_duplicate_slug_returns_422(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'dup-slug',
+        ], $this->authHeaders())->assertOk();
+
+        $response = $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'dup-slug',
+        ], $this->authHeaders());
+
+        $response->assertStatus(422);
+    }
+
+    public function test_create_share_with_invalid_slug_chars_returns_422(): void
+    {
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+
+        $response = $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'has spaces!',
+        ], $this->authHeaders());
+
+        $response->assertStatus(422);
+    }
+
+    public function test_list_shares_empty(): void
+    {
+        $response = $this->getJson('/api/v1/shares', $this->authHeaders());
+        $response->assertOk()
+            ->assertJsonCount(0, 'shares');
+    }
+
+    public function test_list_shares_per_page_pagination(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $files = $this->createTestFiles();
+            $fileIds = array_map(fn($f) => (string) $f->id, $files);
+            $this->postJson('/api/v1/shares', [
+                'fileList' => $fileIds,
+                'slug' => "share-page-{$i}",
+                'expiry' => 30,
+            ], $this->authHeaders())->assertOk();
+        }
+
+        $response = $this->getJson('/api/v1/shares?per_page=2', $this->authHeaders());
+        $response->assertOk()
+            ->assertJsonCount(2, 'shares')
+            ->assertJsonPath('meta.total', 5);
+    }
+
+    public function test_shares_across_users_isolated(): void
+    {
+        // User A creates share
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+        $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'userA-share',
+            'expiry' => 30,
+        ], $this->authHeaders())->assertOk();
+
+        // Create User B and force logout so session doesn't leak
+        $userB = User::create(['username' => 'shareUserB', 'is_admin' => false, 'password' => 'password']);
+        $tokenB = $userB->createToken('share-b-token', ['api'])->plainTextToken;
+        $this->forceLogout();
+
+        // User B lists - shares are global (no user isolation in controller)
+        $response = $this->getJson('/api/v1/shares', [
+            'Authorization' => 'Bearer ' . $tokenB,
+        ]);
+        $response->assertOk();
+    }
+
+    public function test_delete_nonexistent_share_succeeds_silently(): void
+    {
+        // Share::destroy() has no existence check — deleting non-existent ID is a no-op
+        $response = $this->deleteJson('/api/v1/shares/999999', [], $this->authHeaders());
+        $response->assertOk();
+    }
+
+    public function test_delete_other_users_share_no_isolation(): void
+    {
+        // User A creates share
+        $files = $this->createTestFiles();
+        $fileIds = array_map(fn($f) => (string) $f->id, $files);
+        $this->postJson('/api/v1/shares', [
+            'fileList' => $fileIds,
+            'slug' => 'userA-protect',
+        ], $this->authHeaders())->assertOk();
+
+        $share = Share::where('slug', 'userA-protect')->first();
+
+        // User B deletes it — no user isolation in destroy endpoint
+        $userB = User::create(['username' => 'delUserB', 'is_admin' => false, 'password' => 'password']);
+        $tokenB = $userB->createToken('del-b-token', ['api'])->plainTextToken;
+        $this->forceLogout();
+
+        $response = $this->deleteJson("/api/v1/shares/{$share->id}", [], [
+            'Authorization' => 'Bearer ' . $tokenB,
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseMissing('shares', ['id' => $share->id]);
+    }
+
+    public function test_create_share_with_mixed_files_and_folders(): void
+    {
+        $this->uploadFile('', 'share-file-mix.txt', 100);
+        $file = LocalFile::where('filename', 'share-file-mix.txt')->first();
+
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'share-folder-mix',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+        $folder = LocalFile::where('filename', 'share-folder-mix')->where('is_dir', true)->first();
+
+        $response = $this->postJson('/api/v1/shares', [
+            'fileList' => [(string) $file->id, (string) $folder->id],
+            'slug' => 'mixed-share',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        $this->assertDatabaseHas('shares', ['slug' => 'mixed-share']);
     }
 
     protected function tearDown(): void

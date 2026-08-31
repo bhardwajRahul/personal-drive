@@ -232,6 +232,39 @@ class SearchApiTest extends BaseFeatureTest
             ->assertJsonPath('files.0.filename', 'README.txt');
     }
 
+    // ─── New API Tests ───
+
+    public function test_search_missing_q_param_returns_422(): void
+    {
+        $response = $this->getJson('/api/v1/search', $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_search_with_q_exceeding_max_length_returns_422(): void
+    {
+        $response = $this->getJson('/api/v1/search?q=' . str_repeat('a', 256), $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_search_sql_injection_returns_empty(): void
+    {
+        $response = $this->getJson("/api/v1/search?q=" . urlencode("' OR 1=1 --"), $this->authHeaders());
+        $response->assertOk()
+            ->assertJsonCount(0, 'files');
+    }
+
+    public function test_search_finds_folders(): void
+    {
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'searchable-folder',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        $response = $this->getJson('/api/v1/search?q=searchable', $this->authHeaders());
+        $response->assertOk()
+            ->assertJsonCount(1, 'files');
+    }
+
     protected function tearDown(): void
     {
         Storage::disk('local')->deleteDirectory('');

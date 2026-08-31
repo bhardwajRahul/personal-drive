@@ -7,6 +7,7 @@ use App\Models\LocalFile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\Feature\BaseFeatureTest;
 
 class FavoriteApiTest extends BaseFeatureTest
@@ -320,6 +321,78 @@ class FavoriteApiTest extends BaseFeatureTest
         // File should still exist in DB
         $this->assertDatabaseHas('local_files', ['id' => $file->id]);
         $this->assertDatabaseMissing('favorites', ['id' => $favorite->id]);
+    }
+
+    // ─── New API Tests ───
+
+    public function test_add_favorite_with_invalid_ulid_returns_422(): void
+    {
+        $response = $this->postJson('/api/v1/favorites', [
+            'local_file_ids' => ['not-a-ulid'],
+        ], $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_add_favorite_missing_local_file_ids_returns_422(): void
+    {
+        $response = $this->postJson('/api/v1/favorites', [], $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_add_favorite_for_folder(): void
+    {
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'fav-folder',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        $folder = LocalFile::where('filename', 'fav-folder')->where('is_dir', true)->first();
+
+        $response = $this->postJson('/api/v1/favorites', [
+            'local_file_ids' => [(string) $folder->id],
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        $this->assertDatabaseHas('favorites', ['local_file_id' => $folder->id]);
+    }
+
+    public function test_favorite_list_per_page_pagination(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $this->uploadFile('', "fav-page-{$i}.txt", 100);
+            $file = LocalFile::where('filename', "fav-page-{$i}.txt")->first();
+            $this->postJson('/api/v1/favorites', [
+                'local_file_ids' => [(string) $file->id],
+            ], $this->authHeaders())->assertOk();
+        }
+
+        $response = $this->getJson('/api/v1/favorites?per_page=2', $this->authHeaders());
+        $response->assertOk()
+            ->assertJsonCount(2, 'favorites')
+            ->assertJsonPath('meta.total', 5);
+    }
+
+    public function test_favorites_across_users_isolated(): void
+    {
+        // User A favorites a file
+        $this->uploadFile('', 'userA-fav.txt', 100);
+        $file = LocalFile::where('filename', 'userA-fav.txt')->first();
+        $this->postJson('/api/v1/favorites', [
+            'local_file_ids' => [(string) $file->id],
+        ], $this->authHeaders())->assertOk();
+
+        // Create User B
+        $userB = User::create(['username' => 'userB', 'is_admin' => false, 'password' => 'password']);
+        $tokenB = $userB->createToken('b-token', ['api'])->plainTextToken;
+
+        // Must flush session so EnsureFrontendRequestsAreStateful doesn't use User A's session
+        $this->forceLogout();
+
+        $response = $this->getJson('/api/v1/favorites', [
+            'Authorization' => 'Bearer ' . $tokenB,
+        ]);
+        $response->assertOk()
+            ->assertJsonCount(0, 'favorites');
     }
 
     protected function tearDown(): void

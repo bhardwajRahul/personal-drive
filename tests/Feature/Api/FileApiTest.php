@@ -1419,6 +1419,459 @@ class FileApiTest extends BaseFeatureTest
 
     // ─── Cannot Delete Other User's File (app has no per-user isolation) ───
 
+    // ─── New API Tests ───
+
+    public function test_list_files_with_per_page_pagination(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $this->uploadFile('', "page-{$i}.txt", 100);
+        }
+
+        $response = $this->getJson('/api/v1/files?per_page=2', $this->authHeaders());
+        $response->assertOk()
+            ->assertJsonCount(2, 'files')
+            ->assertJsonPath('meta.total', 5);
+    }
+
+    public function test_list_files_with_invalid_per_page_returns_422(): void
+    {
+        $response = $this->getJson('/api/v1/files?per_page=0', $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_list_files_with_per_page_101_returns_422(): void
+    {
+        $response = $this->getJson('/api/v1/files?per_page=101', $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_list_files_with_nonexistent_path_returns_empty(): void
+    {
+        $response = $this->getJson('/api/v1/files?path=doesnotexist', $this->authHeaders());
+        $response->assertOk()
+            ->assertJsonCount(0, 'files');
+    }
+
+    public function test_upload_missing_files_field_returns_422(): void
+    {
+        $response = $this->postJson('/api/v1/files/upload', [
+            'path' => '',
+        ], $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_upload_with_non_file_in_array_returns_422(): void
+    {
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => ['not-a-file'],
+        ], $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_upload_to_path_with_traversal_segments_returns_422(): void
+    {
+        $file = UploadedFile::fake()->create('traversal.txt', 100);
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => [$file],
+            'path' => '../outside',
+        ], $this->authHeaders());
+        $this->assertContains($response->status(), [302, 422]);
+    }
+
+    public function test_upload_large_batch_all_appears_in_response(): void
+    {
+        $files = [];
+        for ($i = 0; $i < 10; $i++) {
+            $files[] = UploadedFile::fake()->create("batch-{$i}.txt", 100);
+        }
+
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => $files,
+        ], $this->authHeaders());
+
+        $response->assertOk()
+            ->assertJsonCount(10, 'files');
+    }
+
+    public function test_create_with_name_containing_dotdot_returns_422(): void
+    {
+        $response = $this->postJson('/api/v1/files/create', [
+            'name' => '../evil',
+            'type' => 'file',
+        ], $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_create_with_name_containing_slash_returns_422(): void
+    {
+        $response = $this->postJson('/api/v1/files/create', [
+            'name' => 'a/b',
+            'type' => 'file',
+        ], $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_create_with_empty_name_returns_422(): void
+    {
+        $response = $this->postJson('/api/v1/files/create', [
+            'name' => '',
+            'type' => 'file',
+        ], $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_create_folder_then_upload_into_it(): void
+    {
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'upload-target',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        $file = UploadedFile::fake()->create('inside-folder.txt', 100);
+        $response = $this->postJson('/api/v1/files/upload', [
+            'files' => [$file],
+            'path' => 'upload-target',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'upload-target' . DS . 'inside-folder.txt');
+    }
+
+    public function test_create_multiple_folders_same_level(): void
+    {
+        for ($i = 0; $i < 3; $i++) {
+            $this->postJson('/api/v1/files/create', [
+                'name' => "folder-{$i}",
+                'type' => 'folder',
+            ], $this->authHeaders())->assertOk();
+        }
+
+        $response = $this->getJson('/api/v1/files', $this->authHeaders());
+        $response->assertOk()
+            ->assertJsonCount(3, 'files');
+    }
+
+    public function test_move_file_to_root(): void
+    {
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'move-src',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        $this->uploadFile('move-src', 'to-root.txt', 100);
+        $file = LocalFile::where('filename', 'to-root.txt')->first();
+
+        $response = $this->postJson('/api/v1/files/move', [
+            'fileList' => [(string) $file->id],
+            'destination' => '/',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'to-root.txt');
+        Storage::disk('local')->assertMissing(CONTENT_SUBDIR . DS . 'move-src' . DS . 'to-root.txt');
+    }
+
+    public function test_move_file_to_nested_subfolder(): void
+    {
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'a',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'b',
+            'type' => 'folder',
+            'path' => 'a',
+        ], $this->authHeaders())->assertOk();
+
+        $this->uploadFile('', 'deep-move.txt', 100);
+        $file = LocalFile::where('filename', 'deep-move.txt')->first();
+
+        $response = $this->postJson('/api/v1/files/move', [
+            'fileList' => [(string) $file->id],
+            'destination' => 'a/b',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'a' . DS . 'b' . DS . 'deep-move.txt');
+    }
+
+    public function test_move_file_from_nested_subfolder(): void
+    {
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'from-parent',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'from-child',
+            'type' => 'folder',
+            'path' => 'from-parent',
+        ], $this->authHeaders())->assertOk();
+
+        $this->uploadFile('from-parent/from-child', 'nested-file.txt', 100);
+        $file = LocalFile::where('filename', 'nested-file.txt')->first();
+
+        $response = $this->postJson('/api/v1/files/move', [
+            'fileList' => [(string) $file->id],
+            'destination' => '/',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'nested-file.txt');
+        $newFile = LocalFile::where('filename', 'nested-file.txt')->first();
+        $this->assertEquals('', $newFile->public_path);
+    }
+
+    public function test_move_mixed_files_and_folders(): void
+    {
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'mix-dest',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        $this->uploadFile('', 'mix-file.txt', 100);
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'mix-folder',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        $file = LocalFile::where('filename', 'mix-file.txt')->first();
+        $folder = LocalFile::where('filename', 'mix-folder')->where('is_dir', true)->first();
+
+        $response = $this->postJson('/api/v1/files/move', [
+            'fileList' => [(string) $file->id, (string) $folder->id],
+            'destination' => 'mix-dest',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'mix-dest' . DS . 'mix-file.txt');
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'mix-dest' . DS . 'mix-folder');
+    }
+
+    public function test_move_folder_with_children(): void
+    {
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'parent-folder',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+        $this->uploadFile('parent-folder', 'child.txt', 100);
+
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'dest',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        $folder = LocalFile::where('filename', 'parent-folder')->where('is_dir', true)->first();
+
+        $response = $this->postJson('/api/v1/files/move', [
+            'fileList' => [(string) $folder->id],
+            'destination' => 'dest',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+        Storage::disk('local')->assertExists(CONTENT_SUBDIR . DS . 'dest' . DS . 'parent-folder' . DS . 'child.txt');
+    }
+
+    public function test_move_to_same_location_returns_422_conflict(): void
+    {
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'same-loc',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+        $this->uploadFile('same-loc', 'already-here.txt', 100);
+        $file = LocalFile::where('filename', 'already-here.txt')->first();
+
+        $response = $this->postJson('/api/v1/files/move', [
+            'fileList' => [(string) $file->id],
+            'destination' => 'same-loc',
+        ], $this->authHeaders());
+
+        $response->assertStatus(422);
+    }
+
+    public function test_move_with_empty_fileList_returns_422(): void
+    {
+        $response = $this->postJson('/api/v1/files/move', [
+            'fileList' => [],
+            'destination' => '/',
+        ], $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_move_with_invalid_ulid_returns_422(): void
+    {
+        $response = $this->postJson('/api/v1/files/move', [
+            'fileList' => ['not-a-valid-ulid'],
+            'destination' => '/',
+        ], $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_move_missing_destination_returns_422(): void
+    {
+        $this->uploadFile('', 'no-dest.txt', 100);
+        $file = LocalFile::where('filename', 'no-dest.txt')->first();
+
+        $response = $this->postJson('/api/v1/files/move', [
+            'fileList' => [(string) $file->id],
+        ], $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_move_file_updates_source_removed_from_db(): void
+    {
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'src-path',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+        $this->uploadFile('src-path', 'track-me.txt', 100);
+        $file = LocalFile::where('filename', 'track-me.txt')->first();
+        $oldId = $file->id;
+
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'dst-path',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        $this->postJson('/api/v1/files/move', [
+            'fileList' => [(string) $file->id],
+            'destination' => 'dst-path',
+        ], $this->authHeaders())->assertOk();
+
+        $this->assertDatabaseMissing('local_files', ['id' => $oldId]);
+        $newFile = LocalFile::where('filename', 'track-me.txt')->first();
+        $this->assertEquals('dst-path', $newFile->public_path);
+    }
+
+    public function test_show_folder_returns_folder_info(): void
+    {
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'show-folder',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        $folder = LocalFile::where('filename', 'show-folder')->where('is_dir', true)->first();
+
+        $response = $this->getJson("/api/v1/files/{$folder->id}", $this->authHeaders());
+        $response->assertOk()
+            ->assertJsonPath('file.filename', 'show-folder');
+    }
+
+    public function test_show_with_invalid_id_format(): void
+    {
+        $response = $this->getJson('/api/v1/files/not-a-ulid', $this->authHeaders());
+        $this->assertContains($response->status(), [404, 422]);
+    }
+
+    public function test_download_folder_returns_error(): void
+    {
+        $this->postJson('/api/v1/files/create', [
+            'name' => 'dl-folder',
+            'type' => 'folder',
+        ], $this->authHeaders())->assertOk();
+
+        $folder = LocalFile::where('filename', 'dl-folder')->where('is_dir', true)->first();
+
+        $response = $this->getJson("/api/v1/files/{$folder->id}/download", $this->authHeaders());
+        $this->assertContains($response->status(), [404, 422]);
+    }
+
+    public function test_download_file_missing_from_disk(): void
+    {
+        $this->uploadFile('', 'disk-gone.txt', 100);
+        $file = LocalFile::where('filename', 'disk-gone.txt')->first();
+        Storage::disk('local')->delete(CONTENT_SUBDIR . DS . 'disk-gone.txt');
+
+        $response = $this->getJson("/api/v1/files/{$file->id}/download", $this->authHeaders());
+        $response->assertStatus(404);
+    }
+
+    public function test_download_file_from_subfolder(): void
+    {
+        $this->uploadFile('sub', 'sub-file.txt', 100);
+        $file = LocalFile::where('filename', 'sub-file.txt')->first();
+
+        $response = $this->getJson("/api/v1/files/{$file->id}/download", $this->authHeaders());
+        $response->assertOk();
+    }
+
+    public function test_delete_file_then_verify_not_in_list(): void
+    {
+        $this->uploadFile('', 'gone-list.txt', 100);
+        $file = LocalFile::where('filename', 'gone-list.txt')->first();
+
+        $this->deleteJson("/api/v1/files/{$file->id}", [], $this->authHeaders())->assertOk();
+
+        $response = $this->getJson('/api/v1/files', $this->authHeaders());
+        $filenames = array_column($response->json('files'), 'filename');
+        $this->assertNotContains('gone-list.txt', $filenames);
+    }
+
+    public function test_delete_multiple_files_sequentially(): void
+    {
+        $ids = [];
+        for ($i = 0; $i < 3; $i++) {
+            $this->uploadFile('', "seq-del-{$i}.txt", 100);
+            $ids[] = LocalFile::where('filename', "seq-del-{$i}.txt")->first()->id;
+        }
+
+        foreach ($ids as $id) {
+            $this->deleteJson("/api/v1/files/{$id}", [], $this->authHeaders())->assertOk();
+        }
+
+        foreach ($ids as $id) {
+            $this->assertDatabaseMissing('local_files', ['id' => $id]);
+        }
+    }
+
+    public function test_rename_with_name_containing_dotdot_returns_422(): void
+    {
+        $this->uploadFile('', 'rename-src.txt', 100);
+        $file = LocalFile::where('filename', 'rename-src.txt')->first();
+
+        $response = $this->postJson("/api/v1/files/{$file->id}/rename", [
+            'name' => '../evil',
+        ], $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_rename_with_name_containing_slash_returns_422(): void
+    {
+        $this->uploadFile('', 'rename-slash.txt', 100);
+        $file = LocalFile::where('filename', 'rename-slash.txt')->first();
+
+        $response = $this->postJson("/api/v1/files/{$file->id}/rename", [
+            'name' => 'a/b',
+        ], $this->authHeaders());
+        $response->assertStatus(422);
+    }
+
+    public function test_save_to_bin_file_succeeds(): void
+    {
+        $this->uploadFile('', 'binary-save.bin', 100);
+        $file = LocalFile::where('filename', 'binary-save.bin')->first();
+
+        $response = $this->postJson("/api/v1/files/{$file->id}/save", [
+            'content' => 'binary content',
+        ], $this->authHeaders());
+
+        $response->assertOk();
+    }
+
+    public function test_save_then_download_content_matches(): void
+    {
+        $this->uploadFile('', 'roundtrip.txt', 1);
+        $file = LocalFile::where('filename', 'roundtrip.txt')->first();
+        $expected = 'roundtrip test content ' . Str::random(50);
+
+        $this->postJson("/api/v1/files/{$file->id}/save", [
+            'content' => $expected,
+        ], $this->authHeaders())->assertOk();
+
+        $response = $this->getJson("/api/v1/files/{$file->id}/download", $this->authHeaders());
+        $response->assertOk();
+        $this->assertEquals($expected, file_get_contents($file->getPrivatePathNameForFile()));
+    }
+
     protected function tearDown(): void
     {
         Storage::disk('local')->deleteDirectory('');

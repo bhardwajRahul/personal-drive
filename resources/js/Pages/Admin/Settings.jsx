@@ -21,7 +21,7 @@ export default function Settings({
     show_two_factor_option,
     tokens = [],
     server_configs = [],
-    api_endpoints = [],
+    api_sections = [],
     flash = {},
 }) {
     const [activeTab, setActiveTab] = useState('config');
@@ -58,7 +58,9 @@ export default function Settings({
                 <main className="mx-auto max-w-7xl">
                     <AlertBox />
 
-                    <div className="max-w-3xl mx-auto bg-blue-900/15 p-2 md:p-12 min-h-[500px] flex flex-col gap-y-8 md:gap-y-20">
+                    <div className={`max-w-3xl mx-auto min-h-[500px] flex flex-col gap-y-8 md:gap-y-20 ${
+                        activeTab === "tokens" ? "" : "bg-blue-900/15 p-2 md:p-12"
+                    }`}>
                         {activeTab === "config" && (
                             <ConfigTab
                                 storage_path={storage_path}
@@ -74,7 +76,7 @@ export default function Settings({
                         {activeTab === "tokens" && (
                             <ApiTokensTab
                                 tokens={tokens}
-                                api_endpoints={api_endpoints}
+                                api_sections={api_sections}
                                 flash={flash}
                             />
                         )}
