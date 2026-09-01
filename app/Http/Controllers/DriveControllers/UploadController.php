@@ -38,7 +38,6 @@ class UploadController extends Controller
 
     public function store(UploadRequest $request): RedirectResponse
     {
-        $conflictsMessage = '';
         $files = $request->validated('files') ?? [];
         $publicPath = $request->validated('path') ?? '';
         $publicPath = $this->pathService->cleanDrivePublicPath($publicPath);
@@ -50,87 +49,34 @@ class UploadController extends Controller
         if (!$privatePath) {
             return $this->error('File upload failed. Could not find storage path');
         }
-        [$successfulUploads, $duplicatesDetected, $conflicts] = $this->processFiles(
-            $files,
-            $privatePath,
-            $publicPath
-        );
-        if ($conflicts) {
-            $conflictsMessage = 'Conflicts: ' . implode(', ', array_slice($conflicts, 0, 3))
+
+        $result = $this->uploadService->processFileUpload($files, $privatePath, $publicPath, true);
+
+        $conflictsMessage = '';
+        if ($result['conflicts']) {
+            $conflictsMessage = 'Conflicts: ' . implode(', ', array_slice($result['conflicts'], 0, 3))
                 . ' cannot overwrite folders';
-            $remainingConflicts = count($conflicts) - 3;
-            if ($remainingConflicts > 0) {
-                $conflictsMessage .= ' (+' . $remainingConflicts . ' more)';
+            $remaining = count($result['conflicts']) - 3;
+            if ($remaining > 0) {
+                $conflictsMessage .= ' (+' . $remaining . ' more)';
             }
         }
 
-        if ($duplicatesDetected > 0) {
-            session(
-                [
-                'new_file_copied_num' => $successfulUploads,
-                'duplicate_files_num' => $duplicatesDetected,
-                ]
-            );
+        if ($result['duplicates'] > 0) {
+            session([
+                'new_file_copied_num' => $result['successful'],
+                'duplicate_files_num' => $result['duplicates'],
+            ]);
             $this->localFileStatsService->generateStats($publicPath, $files);
-            return $this->success('Duplicates Detected' . ($conflicts ? ' (' . $conflictsMessage . ')' : ''), ['replaceAbort' => true]);
+            return $this->success('Duplicates Detected' . ($conflictsMessage ? ' (' . $conflictsMessage . ')' : ''), ['replaceAbort' => true]);
         }
 
-        if ($successfulUploads > 0) {
+        if ($result['successful'] > 0) {
             $this->localFileStatsService->generateStats($publicPath, $files);
-            return $this->success('Files uploaded: ' . $successfulUploads . ' out of ' . count($files) . ($conflicts ? ' (' . $conflictsMessage . ')' : ''));
+            return $this->success('Files uploaded: ' . $result['successful'] . ' out of ' . count($files) . ($conflictsMessage ? ' (' . $conflictsMessage . ')' : ''));
         }
 
-        return $this->error('Some/All Files upload failed' . ($conflicts ? ' (' . $conflictsMessage . ')' : ''));
-    }
-
-    private function processFiles(array $files, string $privatePath, string $publicPath): array
-    {
-        //Temp storage in case we need to abort
-        $tempStorageDirFull = $this->uploadService->setTempStorageDirAbs();
-
-        $conflicts = [];
-        $successfulUploads = $duplicatesDetected = 0;
-        foreach ($files as $file) {
-            $fileNameWithUploadedPath = $this->pathService->sanitizeUploadPath($file->getClientOriginalPath());
-            $sanitizeFileName = $this->pathService->sanitizeFileName($file->getClientOriginalName());
-
-            if ($fileNameWithUploadedPath === '' || $sanitizeFileName === '') {
-                continue;
-            }
-
-            $destinationFullPath = $privatePath . $fileNameWithUploadedPath;
-            $tempDirFullPath = dirname(
-                $this->uploadService->getTempStorageDirAbs() . DS . ($publicPath ? $publicPath . DS : '') . $fileNameWithUploadedPath
-            );
-            $tempDirRelativePath = $this->uploadService->getTempStorageDir() . DS . $publicPath;
-            $relativeBasePath = $this->pathService->getPlusContentRoot($publicPath);
-            $relativeDestinationPath = $relativeBasePath . $fileNameWithUploadedPath;
-
-            if ($this->fileOperationsService->directoryExists($relativeDestinationPath)
-                || $this->fileOperationsService->pathExistsAsFile(
-                    $relativeBasePath,
-                    dirname($fileNameWithUploadedPath)
-                )
-            ) {
-                $conflicts[] = $fileNameWithUploadedPath;
-            } elseif (file_exists($destinationFullPath) && $tempStorageDirFull) {
-                $duplicatesDetected++;
-                $this->uploadService->uploadToDir(
-                    $tempDirFullPath,
-                    $file,
-                    $tempDirRelativePath
-                );
-            } else {
-                $this->uploadService->uploadToDir(
-                    dirname($destinationFullPath),
-                    $file,
-                    dirname($relativeDestinationPath)
-                );
-                $successfulUploads++;
-            }
-        }
-
-        return [$successfulUploads, $duplicatesDetected, $conflicts];
+        return $this->error('Some/All Files upload failed' . ($conflictsMessage ? ' (' . $conflictsMessage . ')' : ''));
     }
 
     public function createItem(CreateItemRequest $request): RedirectResponse

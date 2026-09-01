@@ -16,10 +16,10 @@ use App\Services\FileOperationsService;
 use App\Services\FileRenameService;
 use App\Services\LocalFileStatsService;
 use App\Services\PathService;
+use App\Helpers\ResponseHelper;
 use App\Services\UploadService;
 use App\Traits\HasJsonPagination;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use SplFileInfo;
 
@@ -72,8 +72,8 @@ class FileController extends Controller
     {
         $file = LocalFile::getById($id);
 
-        if (! $file || ! file_exists($file->getPrivatePathNameForFile())) {
-            return response()->json(['message' => 'File not found'], 404);
+        if (!$file || !file_exists($file->getPrivatePathNameForFile())) {
+            return ResponseHelper::json('File not found', false, 404);
         }
 
         $file->sizeText = LocalFile::getItemSizeText($file);
@@ -89,66 +89,23 @@ class FileController extends Controller
         $publicPath = $this->pathService->cleanDrivePublicPath($publicPath);
         $privatePath = $this->pathService->genPrivatePathFromPublic($publicPath);
 
-        if (! $files) {
-            return response()->json(['message' => 'No files uploaded'], 422);
+        if (!$files) {
+            return ResponseHelper::json('No files uploaded', false, 422);
         }
-        if (! $privatePath) {
-            return response()->json(['message' => 'Could not find storage path'], 422);
+        if (!$privatePath) {
+            return ResponseHelper::json('Could not find storage path', false, 422);
         }
 
-        $conflicts = [];
-        $successfulUploads = 0;
-
-        $this->uploadService->setTempStorageDirAbs();
-
-        foreach ($files as $file) {
-            $sanitizedPath = $this->pathService->sanitizeUploadPath($file->getClientOriginalPath());
-            $sanitizedName = $this->pathService->sanitizeFileName($file->getClientOriginalName());
-
-            if ($sanitizedPath === '' || $sanitizedName === '') {
-                continue;
-            }
-
-            $destinationFullPath = $privatePath . $sanitizedPath;
-            $destDir = dirname($destinationFullPath);
-            $relativeBasePath = $this->pathService->getPlusContentRoot($publicPath);
-            $relativeDestinationPath = $relativeBasePath . $sanitizedPath;
-
-            if ($this->fileOperationsService->directoryExists($relativeDestinationPath)
-                || $this->fileOperationsService->pathExistsAsFile(
-                    $relativeBasePath,
-                    dirname($sanitizedPath)
-                )
-            ) {
-                $conflicts[] = $sanitizedPath;
-                $tempDirFullPath = dirname(
-                    $this->uploadService->getTempStorageDirAbs() . DS . ($publicPath ? $publicPath . DS : '') . $sanitizedPath
-                );
-                $tempDirRelativePath = $this->uploadService->getTempStorageDir() . DS . $publicPath;
-                try {
-                    $this->uploadService->uploadToDir($tempDirFullPath, $file, $tempDirRelativePath);
-                } catch (\Exception) {
-                    // skip failed temp uploads
-                }
-                continue;
-            }
-
-            try {
-                $this->uploadService->uploadToDir($destDir, $file, dirname($relativeDestinationPath));
-                $successfulUploads++;
-            } catch (\Exception) {
-                // skip failed uploads
-            }
-        }
+        $result = $this->uploadService->processFileUpload($files, $privatePath, $publicPath, swallowErrors: true);
 
         $this->localFileStatsService->generateStats($publicPath, $files);
 
-        $message = match (true) {
-            $successfulUploads > 0 => 'Files uploaded: ' . $successfulUploads . ' out of ' . count($files),
-            default => 'Some/All files upload failed',
-        };
-        if ($conflicts) {
-            $message .= ' (Conflicts: ' . implode(', ', array_slice($conflicts, 0, 3)) . ')';
+        $message = $result['successful'] > 0
+            ? 'Files uploaded: ' . $result['successful'] . ' out of ' . count($files)
+            : 'Some/All files upload failed';
+
+        if ($result['conflicts']) {
+            $message .= ' (Conflicts: ' . implode(', ', array_slice($result['conflicts'], 0, 3)) . ')';
         }
 
         $newFiles = LocalFile::getFilesForPublicPath($publicPath)->get();
@@ -168,47 +125,38 @@ class FileController extends Controller
         $privatePath = $this->pathService->genPrivatePathFromPublic($publicPath);
 
         $isFile = $type === 'file';
+        $created = $isFile
+            ? $this->fileOperationsService->makeFile($this->pathService->getPlusContentRoot($publicPath, $name))
+            : $this->fileOperationsService->makeFolder($this->pathService->getPlusContentRoot($publicPath, $name));
 
-        if ($isFile) {
-            $created = $this->fileOperationsService->makeFile(
-                $this->pathService->getPlusContentRoot($publicPath, $name)
-            );
-        } else {
-            $created = $this->fileOperationsService->makeFolder(
-                $this->pathService->getPlusContentRoot($publicPath, $name)
-            );
+        if (!$created) {
+            return ResponseHelper::json('Create ' . $type . ' failed', false, 422);
         }
 
-        if (! $created) {
-            return response()->json(['message' => 'Create ' . $type . ' failed'], 422);
-        }
-
-        $this->localFileStatsService->addItemPathStat($name, $privatePath, $publicPath, ! $isFile);
+        $this->localFileStatsService->addItemPathStat($name, $privatePath, $publicPath, !$isFile);
 
         $file = LocalFile::where('filename', $name)
             ->where('public_path', $publicPath)
             ->first();
 
-        return response()->json(
-            [
+        return response()->json([
             'message' => ucfirst($type) . ' created',
             'file' => $file,
-            ]
-        );
+        ]);
     }
 
     public function download(string $id)
     {
         $file = LocalFile::getById($id);
 
-        if (! $file) {
-            return response()->json(['message' => 'File not found'], 404);
+        if (!$file) {
+            return ResponseHelper::json('File not found', false, 404);
         }
 
         $privatePath = $file->getPrivatePathNameForFile();
 
-        if (! is_file($privatePath)) {
-            return response()->json(['message' => 'File not found on disk'], 404);
+        if (!is_file($privatePath)) {
+            return ResponseHelper::json('File not found on disk', false, 404);
         }
 
         $mimeType = mime_content_type($privatePath) ?: 'application/octet-stream';
@@ -216,9 +164,9 @@ class FileController extends Controller
         return response()->streamDownload(
             function () use ($privatePath) {
                 readfile($privatePath);
-            }, $file->filename, [
-            'Content-Type' => $mimeType,
-            ]
+            },
+            $file->filename,
+            ['Content-Type' => $mimeType]
         );
     }
 
@@ -226,8 +174,8 @@ class FileController extends Controller
     {
         $file = LocalFile::getById($id);
 
-        if (! $file) {
-            return response()->json(['message' => 'File not found'], 404);
+        if (!$file) {
+            return ResponseHelper::json('File not found', false, 404);
         }
 
         $rootPath = $this->pathService->getStorageFolderPath();
@@ -236,12 +184,10 @@ class FileController extends Controller
 
         $localFiles->delete();
 
-        return response()->json(
-            [
+        return response()->json([
             'message' => 'Files deleted',
             'deleted' => $filesDeleted,
-            ]
-        );
+        ]);
     }
 
     public function move(MoveFilesRequest $request): JsonResponse
@@ -258,12 +204,10 @@ class FileController extends Controller
             $this->pathService->cleanDrivePublicPath($destination)
         )->get();
 
-        return response()->json(
-            [
+        return response()->json([
             'message' => 'Files moved',
             'files' => $newFiles->values(),
-            ]
-        );
+        ]);
     }
 
     public function rename(RenameFileRequest $request, string $id): JsonResponse
@@ -271,27 +215,25 @@ class FileController extends Controller
         $name = $request->validated('name');
         $file = LocalFile::getById($id);
 
-        if (! $file) {
-            return response()->json(['message' => 'File not found'], 404);
+        if (!$file) {
+            return ResponseHelper::json('File not found', false, 404);
         }
 
         try {
             $this->fileRenameService->renameFile($file, $name);
         } catch (Exception $e) {
             Log::error('File rename failed', ['exception' => $e]);
-            return response()->json(['message' => 'Rename failed'], 422);
+            return ResponseHelper::json('Rename failed', false, 422);
         }
 
         $file->refresh();
         $file->sizeText = LocalFile::getItemSizeText($file);
         $file->date = filemtime($file->getPrivatePathNameForFile());
 
-        return response()->json(
-            [
+        return response()->json([
             'message' => 'File renamed',
             'file' => $file,
-            ]
-        );
+        ]);
     }
 
     public function save(SaveFileRequest $request, string $id): JsonResponse
@@ -299,22 +241,22 @@ class FileController extends Controller
         $content = $request->validated('content');
         $file = LocalFile::getById($id);
 
-        if (! $file) {
-            return response()->json(['message' => 'File not found'], 404);
+        if (!$file) {
+            return ResponseHelper::json('File not found', false, 404);
         }
 
         if ($file->file_type !== 'text' && $file->file_type !== 'empty') {
-            return response()->json(['message' => 'File is not a text file'], 422);
+            return ResponseHelper::json('File is not a text file', false, 422);
         }
 
         $privatePathFile = $file->getPrivatePathNameForFile();
 
-        if (! $privatePathFile || ! is_file($privatePathFile) || ! is_writable($privatePathFile)) {
-            return response()->json(['message' => 'Could not save file'], 422);
+        if (!$privatePathFile || !is_file($privatePathFile) || !is_writable($privatePathFile)) {
+            return ResponseHelper::json('Could not save file', false, 422);
         }
 
         if (file_put_contents($privatePathFile, $content) === false) {
-            return response()->json(['message' => 'Could not save file'], 422);
+            return ResponseHelper::json('Could not save file', false, 422);
         }
 
         $fileInfo = new SplFileInfo($privatePathFile);
@@ -322,11 +264,9 @@ class FileController extends Controller
 
         $file->refresh();
 
-        return response()->json(
-            [
+        return response()->json([
             'message' => 'File saved',
             'file' => $file,
-            ]
-        );
+        ]);
     }
 }

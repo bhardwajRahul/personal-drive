@@ -2,21 +2,24 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Helpers\ResponseHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\CreateShareRequest;
 use App\Http\Requests\Api\ListSharesRequest;
-use App\Models\LocalFile;
 use App\Models\Share;
-use App\Models\SharedFile;
+use App\Services\ShareService;
 use App\Traits\HasJsonPagination;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class ShareController extends Controller
 {
     use HasJsonPagination;
+
+    public function __construct(
+        private ShareService $shareService,
+    ) {}
+
     public function index(ListSharesRequest $request): JsonResponse
     {
         $perPage = $request->validated('per_page', 50);
@@ -29,52 +32,39 @@ class ShareController extends Controller
 
     public function store(CreateShareRequest $request): JsonResponse
     {
-        $fileIds = $request->validated('fileList');
-        $slug = $request->validated('slug', '') ?: Str::random(10);
-        $password = $request->validated('password', '');
-        $expiry = $request->validated('expiry', '');
+        $result = $this->shareService->create(
+            $request->validated('fileList'),
+            $request->validated('slug', ''),
+            $request->validated('password', ''),
+            $request->validated('expiry', ''),
+        );
 
-        $localFiles = LocalFile::whereIn('id', $fileIds)->get();
-
-        if ($localFiles->count() !== count($fileIds)) {
-            return response()->json(['message' => 'Some files not found'], 422);
+        if (!$result['success']) {
+            return ResponseHelper::json($result['message'], false, 422);
         }
 
-        $hashedPassword = $password ? Hash::make($password) : '';
-
-        $share = Share::add($slug, $hashedPassword, $expiry, $localFiles->first()->public_path);
-        SharedFile::addArray($localFiles, $share->id);
-
-        return response()->json(
-            [
-            'share' => $share,
-            'url' => url('/shared/' . $slug),
-            ]
-        );
+        return response()->json([
+            'share' => $result['share'],
+            'url' => $result['url'],
+        ]);
     }
 
-    public function destroy(Request $request, string $id): JsonResponse
+    public function destroy(string $id): JsonResponse
     {
         Share::whereById($id)->delete();
-
-        return response()->json(['message' => 'Share deleted']);
+        return ResponseHelper::json('Share deleted');
     }
 
-    public function toggle(Request $request, string $id): JsonResponse
+    public function toggle(string $id): JsonResponse
     {
         $share = Share::whereById($id)->first();
 
         if (!$share) {
-            return response()->json(['message' => 'Share not found'], 404);
+            return ResponseHelper::json('Share not found', false, 404);
         }
 
-        $share->forceFill(['enabled' => !$share->enabled])->save();
+        $updated = $this->shareService->toggle($share);
 
-        return response()->json(
-            [
-            'share' => $share->fresh(),
-            'message' => $share->fresh()->enabled ? 'Share enabled' : 'Share paused',
-            ]
-        );
+        return ResponseHelper::json($updated->enabled ? 'Share enabled' : 'Share paused');
     }
 }

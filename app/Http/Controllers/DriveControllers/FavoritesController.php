@@ -4,72 +4,38 @@ namespace App\Http\Controllers\DriveControllers;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DriveRequests\StoreFavoritesRequest;
-use App\Models\Favorite;
-use App\Models\LocalFile;
-use App\Models\User;
+use App\Services\FavoriteService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Collection;
 
 class FavoritesController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function __construct(
+        private FavoriteService $favoriteService,
+    ) {}
+
+    public function index(): JsonResponse
     {
-        return response()->json(['favorites' => $this->favoritesFor($request->user())]);
+        return response()->json(['favorites' => $this->favoriteService->list()]);
     }
 
     public function store(StoreFavoritesRequest $request): JsonResponse
     {
-        $user = $request->user();
-        $localFileIds = array_values(array_unique($request->validated('local_file_ids')));
-        $localFiles = LocalFile::where('user_id', $user->id)
-            ->whereIn('id', $localFileIds)
-            ->get();
+        $result = $this->favoriteService->store($request->validated('local_file_ids'));
 
-        if ($localFiles->count() !== count($localFileIds)) {
-            return response()->json(
-                [
-                    'message' => 'One or more files do not belong to you.',
-                    'errors' => [
-                        'local_file_ids' => ['One or more files do not belong to you.'],
-                    ],
-                ],
-                422
-            );
+        if (!$result['success']) {
+            return response()->json([
+                'message' => $result['message'],
+                'errors' => ['local_file_ids' => [$result['message']]],
+            ], 422);
         }
 
-        $favoritedAt = now();
-        Favorite::upsert(
-            $localFiles->map(
-                fn (LocalFile $localFile) => [
-                    'user_id' => $user->id,
-                    'local_file_id' => $localFile->id,
-                    'favorited_at' => $favoritedAt,
-                ]
-            )->all(),
-            ['user_id', 'local_file_id'],
-            ['updated_at']
-        );
-
-        return response()->json(['favorites' => $this->favoritesFor($user)]);
+        return response()->json(['favorites' => $result['favorites']]);
     }
 
-    public function destroy(Request $request, string $favoriteId): Response
+    public function destroy(string $favoriteId): Response
     {
-        Favorite::where('id', $favoriteId)
-            ->where('user_id', $request->user()->id)
-            ->delete();
-
+        $this->favoriteService->remove($favoriteId);
         return response()->noContent();
-    }
-
-    private function favoritesFor(User $user): Collection
-    {
-        return Favorite::with('localFile:id,filename,public_path,is_dir')
-            ->where('user_id', $user->id)
-            ->orderByDesc('favorited_at')
-            ->orderByDesc('id')
-            ->get();
     }
 }

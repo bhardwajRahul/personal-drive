@@ -6,6 +6,7 @@ use App\Exceptions\PersonalDriveExceptions\UploadFileException;
 use App\Models\LocalFile;
 use App\Models\Setting;
 use Error;
+use Exception;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
@@ -154,6 +155,84 @@ class UploadService
             throw UploadFileException::pathTooLong();
         } catch (Error) {
             throw UploadFileException::outOfMemory();
+        }
+    }
+
+    /**
+     * @return array{successful: int, duplicates: int, conflicts: array<string>}
+     */
+    public function processFileUpload(array $files, string $privatePath, string $publicPath, bool $useTempForConflicts = false, bool $swallowErrors = false): array
+    {
+        $conflicts = [];
+        $successful = $duplicates = 0;
+        $tempReady = $useTempForConflicts ? $this->setTempStorageDirAbs() : '';
+
+        foreach ($files as $file) {
+            $result = $this->processSingleFile($file, $privatePath, $publicPath, $tempReady, $swallowErrors);
+
+            if ($result === 'skip') continue;
+            if ($result === 'conflict') { $conflicts[] = $this->pathService->sanitizeUploadPath($file->getClientOriginalPath()); continue; }
+            if ($result === 'duplicate') { $duplicates++; continue; }
+            $successful++;
+        }
+
+        return ['successful' => $successful, 'duplicates' => $duplicates, 'conflicts' => $conflicts];
+    }
+
+    /**
+     * @return string 'ok'|'skip'|'conflict'|'duplicate'
+     */
+    private function processSingleFile(mixed $file, string $privatePath, string $publicPath, string $tempReady, bool $swallowErrors): string
+    {
+        $sanitizedPath = $this->pathService->sanitizeUploadPath($file->getClientOriginalPath());
+        $sanitizedName = $this->pathService->sanitizeFileName($file->getClientOriginalName());
+
+        if ($sanitizedPath === '' || $sanitizedName === '') {
+            return 'skip';
+        }
+
+        $relativeBasePath = $this->pathService->getPlusContentRoot($publicPath);
+        $relativeDestinationPath = $relativeBasePath . $sanitizedPath;
+
+        if ($this->isPathConflict($relativeDestinationPath, $relativeBasePath, $sanitizedPath)) {
+            if ($tempReady) $this->uploadToTemp($sanitizedPath, $file, $publicPath);
+            return 'conflict';
+        }
+
+        $destinationFullPath = $privatePath . $sanitizedPath;
+        if ($tempReady && file_exists($destinationFullPath)) {
+            $this->uploadToTemp($sanitizedPath, $file, $publicPath);
+            return 'duplicate';
+        }
+
+        if ($swallowErrors) {
+            try {
+                $this->uploadToDir(dirname($destinationFullPath), $file, dirname($relativeDestinationPath));
+            } catch (Exception) {
+                return 'skip';
+            }
+        } else {
+            $this->uploadToDir(dirname($destinationFullPath), $file, dirname($relativeDestinationPath));
+        }
+        return 'ok';
+    }
+
+    private function isPathConflict(string $relativeDestinationPath, string $relativeBasePath, string $sanitizedPath): bool
+    {
+        return $this->fileOperationsService->directoryExists($relativeDestinationPath)
+            || $this->fileOperationsService->pathExistsAsFile($relativeBasePath, dirname($sanitizedPath));
+    }
+
+    private function uploadToTemp(string $sanitizedPath, mixed $file, string $publicPath): void
+    {
+        $tempDir = dirname(
+            $this->getTempStorageDirAbs() . DS . ($publicPath ? $publicPath . DS : '') . $sanitizedPath
+        );
+        $tempRelativePath = $this->getTempStorageDir() . DS . $publicPath;
+        try {
+            $this->uploadToDir($tempDir, $file, $tempRelativePath);
+        } catch (Exception) {
+            // skip failed temp uploads
         }
     }
 

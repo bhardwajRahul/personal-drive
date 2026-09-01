@@ -6,7 +6,6 @@ use App\Exceptions\PersonalDriveExceptions\UploadFileException;
 use App\Models\LocalFile;
 use Exception;
 use FilesystemIterator;
-use Illuminate\Support\Facades\Auth;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
@@ -44,7 +43,7 @@ class LocalFileStatsService
             'public_path' => $publicPath,
             'private_path' => $privatePath,
             'size' => $file->isDir() ? '' : $file->getSize(),
-            'user_id' => Auth::user()->id ?? 1,
+            'user_id' => auth()->user()->id ?? 1,
             'file_type' => $this->getFileType($file)
         ];
     }
