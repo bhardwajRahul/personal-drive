@@ -2,61 +2,31 @@
 
 namespace App\Http\Controllers\ShareControllers;
 
-use App\Exceptions\PersonalDriveExceptions\ShareFileException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DriveRequests\ShareFilesGenRequest;
-use App\Models\LocalFile;
-use App\Models\Share;
-use App\Models\SharedFile;
-use App\Services\LocalFileStatsService;
-use App\Services\PathService;
+use App\Services\ShareService;
 use App\Traits\FlashMessages;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class ShareFilesGenController extends Controller
 {
     use FlashMessages;
 
-    protected PathService $pathService;
-
-    protected LocalFileStatsService $localFileStatsService;
-
-    public function __construct(
-        PathService $pathService,
-        LocalFileStatsService $localFileStatsService
-    ) {
-        $this->localFileStatsService = $localFileStatsService;
-        $this->pathService = $pathService;
-    }
+    public function __construct(private ShareService $shareService) {}
 
     public function index(ShareFilesGenRequest $request): RedirectResponse
     {
-        $fileKeyArray = $request->validated('fileList');
-        $slug = $request->validated('slug');
-        $password = $request->validated('password');
-        $expiry = $request->validated('expiry');
-        $localFiles = LocalFile::getByIds($fileKeyArray)->get();
+        $result = $this->shareService->create(
+            $request->validated('fileList'),
+            $request->validated('slug', ''),
+            $request->validated('password', ''),
+            $request->validated('expiry', ''),
+        );
 
-        $slug = $slug ?: Str::random(10);
-
-        if ($localFiles->isEmpty()
-            || $localFiles->contains(fn (LocalFile $file) => !$file->isValidFile() && !$file->isValidDir())
-        ) {
-            throw ShareFileException::couldNotShare();
-        }
-        $hashedPassword = $password ? Hash::make($password) : null;
-
-        $share = Share::add($slug, $hashedPassword, $expiry, $localFiles[0]->public_path);
-
-        $sharedFiles = SharedFile::addArray($localFiles, $share->id);
-        if (!$sharedFiles) {
-            throw ShareFileException::couldNotShare();
+        if (!$result['success']) {
+            return $this->error('No valid files to share. Try a Resync');
         }
 
-        $sharedLink = url('/') . '/shared/' . $slug;
-
-        return redirect()->back()->with('shared_link', $sharedLink);
+        return redirect()->back()->with('shared_link', $result['url']);
     }
 }

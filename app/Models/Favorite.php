@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Favorite extends Model
@@ -30,6 +31,14 @@ class Favorite extends Model
         return [
             'favorited_at' => 'datetime',
         ];
+    }
+
+    public static function getForUserQuery(int $userId): Builder
+    {
+        return static::with('localFile:id,filename,public_path,is_dir')
+            ->where('user_id', $userId)
+            ->orderByDesc('favorited_at')
+            ->orderByDesc('id');
     }
 
     public function user(): BelongsTo

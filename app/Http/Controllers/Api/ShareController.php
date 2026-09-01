@@ -10,7 +10,6 @@ use App\Models\Share;
 use App\Services\ShareService;
 use App\Traits\HasJsonPagination;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class ShareController extends Controller
 {
@@ -51,20 +50,19 @@ class ShareController extends Controller
 
     public function destroy(string $id): JsonResponse
     {
-        Share::whereById($id)->delete();
+        $this->shareService->delete((int) $id);
+
         return ResponseHelper::json('Share deleted');
     }
 
     public function toggle(string $id): JsonResponse
     {
-        $share = Share::whereById($id)->first();
+        $result = $this->shareService->toggle((int) $id);
 
-        if (!$share) {
-            return ResponseHelper::json('Share not found', false, 404);
+        if (!$result['success']) {
+            return ResponseHelper::json($result['message'], false, 404);
         }
 
-        $updated = $this->shareService->toggle($share);
-
-        return ResponseHelper::json($updated->enabled ? 'Share enabled' : 'Share paused');
+        return ResponseHelper::json($result['message']);
     }
 }

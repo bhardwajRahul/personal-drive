@@ -79,6 +79,11 @@ class CommonRequest extends FormRequest
         return ['required', 'string', 'ulid'];
     }
 
+    public static function perPageRules(): array
+    {
+        return ['nullable', 'integer', 'min:1', 'max:100'];
+    }
+
     public static function sharePasswordRules(): array
     {
         return ['nullable', 'string', Password::min(6)];

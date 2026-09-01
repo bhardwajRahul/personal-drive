@@ -40,6 +40,13 @@ class LocalFile extends Model
         return self::whereIn('id', $fileIds);
     }
 
+    public static function getByPathAndName(string $publicPath, string $filename): ?self
+    {
+        return self::where('filename', $filename)
+            ->where('public_path', $publicPath)
+            ->first();
+    }
+
     public static function insertRows(array $insertArr): int
     {
         return self::upsert($insertArr, ['filename', 'public_path']);

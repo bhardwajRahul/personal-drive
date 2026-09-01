@@ -247,8 +247,8 @@ curl -s -X POST "https://your-domain.com/api/v1/files/move" \\
                     'body' => null,
                     'response' => '{
   "favorites": [
-    { "id": 1, "local_file_id": "01HXYZ...", "favorited_at": "2024-01-01T00:00:00Z",
-      "local_file": { "id": "...", "filename": "photo.jpg", "public_path": "", "is_dir": false } }
+    { "id": "01HXYZ...", "favorited_at": "2024-01-01T00:00:00Z",
+      "local_file": { "id": "01HXYZ...", "filename": "photo.jpg", "public_path": "", "is_dir": false } }
   ],
   "links": { ... },
   "meta": { ... }
@@ -260,7 +260,7 @@ curl -s -X POST "https://your-domain.com/api/v1/files/move" \\
                     'method' => 'POST',
                     'url' => '/api/v1/favorites',
                     'title' => 'Add Favorites',
-                    'description' => 'Add one or more files to your favorites. Already-favorited files are updated.',
+                    'description' => 'Add one or more files to your favorites.',
                     'params' => [],
                     'body' => [
                         ['name' => 'local_file_ids[]', 'type' => 'string[]', 'required' => true, 'description' => 'Array of file ULIDs to favorite.'],
@@ -283,7 +283,7 @@ curl -s -X POST "https://your-domain.com/api/v1/files/move" \\
                     'response' => '{
   "message": "Favorite removed"
 }',
-                    'curl' => 'curl -s -X DELETE "https://your-domain.com/api/v1/favorites/1" \\
+                    'curl' => 'curl -s -X DELETE "https://your-domain.com/api/v1/favorites/01HXYZ..." \\
   -H "Authorization: Bearer <your-token>"',
                 ],
             ],

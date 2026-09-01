@@ -236,9 +236,26 @@ class UploadService
         }
     }
 
-    public function cleanOldTempFiles(): bool
+    /**
+     * @param array<string> $conflicts
+     */
+    public function summarizeConflicts(array $conflicts): string
     {
-        $tempDirFullPath = $this->getTempStorageDirAbs();
+        return implode(', ', array_slice($conflicts, 0, 3));
+    }
+
+    /**
+     * @param array<string> $conflicts
+     */
+    public function conflictRemainder(array $conflicts): string
+    {
+        $remaining = count($conflicts) - 3;
+
+        return $remaining > 0 ? ' (+' . $remaining . ' more)' : '';
+    }
+
+    public function cleanOldTempFiles(): bool
+    {        $tempDirFullPath = $this->getTempStorageDirAbs();
         if (!$tempDirFullPath) {
             return true;
         }

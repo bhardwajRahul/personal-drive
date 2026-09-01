@@ -122,4 +122,12 @@ class PathSanitizerTest extends TestCase
     {
         $this->assertSame('', $this->pathService->sanitizeFileName(''));
     }
+
+    public function test_drive_public_paths_are_normalized(): void
+    {
+        $this->assertSame('', $this->pathService->cleanDrivePublicPath('/drive'));
+        $this->assertSame('folder/subfolder', $this->pathService->cleanDrivePublicPath('/drive/folder/subfolder/'));
+        $this->assertSame('', $this->pathService->cleanDrivePublicPath('/drive/'));
+        $this->assertSame('/drivemy/drive', $this->pathService->cleanDrivePublicPath('/drivemy/drive'));
+    }
 }

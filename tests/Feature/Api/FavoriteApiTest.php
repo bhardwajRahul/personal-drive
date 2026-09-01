@@ -6,8 +6,8 @@ use App\Models\Favorite;
 use App\Models\LocalFile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Tests\Feature\BaseFeatureTest;
 
 class FavoriteApiTest extends BaseFeatureTest
@@ -56,7 +56,9 @@ class FavoriteApiTest extends BaseFeatureTest
         ], $this->authHeaders());
 
         $response->assertOk()
-            ->assertJsonCount(1, 'favorites');
+            ->assertJsonCount(1, 'favorites')
+            ->assertJsonMissingPath('favorites.0.local_file_id')
+            ->assertJsonPath('favorites.0.local_file.id', $file->id);
 
         $this->assertDatabaseHas('favorites', [
             'user_id' => $this->apiUser->id,
@@ -122,24 +124,33 @@ class FavoriteApiTest extends BaseFeatureTest
         $this->assertContains($response->status(), [401, 403]);
     }
 
-    public function test_add_duplicate_favorite_is_idempotent(): void
+    public function test_add_duplicate_favorite_is_idempotent_and_refreshes_favorited_time(): void
     {
         $this->uploadFile('', 'dup-fav.txt', 100);
         $file = LocalFile::where('filename', 'dup-fav.txt')->first();
+        Carbon::setTestNow('2026-01-01 00:00:00');
 
-        $this->postJson('/api/v1/favorites', [
-            'local_file_ids' => [(string) $file->id],
-        ], $this->authHeaders());
+        try {
+            $this->postJson('/api/v1/favorites', [
+                'local_file_ids' => [(string) $file->id],
+            ], $this->authHeaders());
 
-        $this->postJson('/api/v1/favorites', [
-            'local_file_ids' => [(string) $file->id],
-        ], $this->authHeaders());
+            Carbon::setTestNow('2026-01-01 00:01:00');
+            $this->postJson('/api/v1/favorites', [
+                'local_file_ids' => [(string) $file->id],
+            ], $this->authHeaders());
 
-        $count = Favorite::where('user_id', $this->apiUser->id)
-            ->where('local_file_id', $file->id)
-            ->count();
+            $favorite = Favorite::where('user_id', $this->apiUser->id)
+                ->where('local_file_id', $file->id)
+                ->firstOrFail();
 
-        $this->assertEquals(1, $count);
+            $this->assertSame(1, Favorite::where('user_id', $this->apiUser->id)
+                ->where('local_file_id', $file->id)
+                ->count());
+            $this->assertTrue($favorite->favorited_at->equalTo(now()));
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_remove_nonexistent_favorite_succeeds_silently(): void

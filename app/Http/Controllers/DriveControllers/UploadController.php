@@ -8,7 +8,7 @@ use App\Http\Requests\DriveRequests\ReplaceAbortRequest;
 use App\Http\Requests\DriveRequests\UploadRequest;
 use App\Services\LocalFileStatsService;
 use App\Services\PathService;
-use App\Services\FileOperationsService;
+use App\Services\FileSaveService;
 use App\Services\UploadService;
 use App\Traits\FlashMessages;
 use Illuminate\Http\RedirectResponse;
@@ -20,20 +20,20 @@ class UploadController extends Controller
     use FlashMessages;
 
     protected PathService $pathService;
-    protected FileOperationsService $fileOperationsService;
     protected UploadService $uploadService;
     protected LocalFileStatsService $localFileStatsService;
+    protected FileSaveService $fileSaveService;
 
     public function __construct(
         PathService $pathService,
         LocalFileStatsService $localFileStatsService,
-        FileOperationsService $fileOperationsService,
         UploadService $uploadService,
+        FileSaveService $fileSaveService,
     ) {
         $this->localFileStatsService = $localFileStatsService;
         $this->pathService = $pathService;
-        $this->fileOperationsService = $fileOperationsService;
         $this->uploadService = $uploadService;
+        $this->fileSaveService = $fileSaveService;
     }
 
     public function store(UploadRequest $request): RedirectResponse
@@ -54,12 +54,8 @@ class UploadController extends Controller
 
         $conflictsMessage = '';
         if ($result['conflicts']) {
-            $conflictsMessage = 'Conflicts: ' . implode(', ', array_slice($result['conflicts'], 0, 3))
-                . ' cannot overwrite folders';
-            $remaining = count($result['conflicts']) - 3;
-            if ($remaining > 0) {
-                $conflictsMessage .= ' (+' . $remaining . ' more)';
-            }
+            $conflictsMessage = 'Conflicts: ' . $this->uploadService->summarizeConflicts($result['conflicts'])
+                . ' cannot overwrite folders' . $this->uploadService->conflictRemainder($result['conflicts']);
         }
 
         if ($result['duplicates'] > 0) {
@@ -85,20 +81,12 @@ class UploadController extends Controller
         $itemName = $request->validated('itemName');
         $isFile = $request->validated('isFile');
         $publicPath = $this->pathService->cleanDrivePublicPath($publicPath);
-        $privatePath = $this->pathService->genPrivatePathFromPublic($publicPath);
-        if ($isFile
-            && !$this->fileOperationsService->makeFile($this->pathService->getPlusContentRoot($publicPath, $itemName))
-        ) {
-            return $this->error('Create file failed');
-        }
-        if (!$isFile
-            && !$this->fileOperationsService->makeFolder($this->pathService->getPlusContentRoot($publicPath, $itemName))
-        ) {
-            return $this->error('Create folder failed');
-        }
 
-        $this->localFileStatsService->addItemPathStat($itemName, $privatePath, $publicPath, !$isFile);
-        return $this->success('Created ' . ($isFile ? 'file' : 'folder') . ' successfully');
+        $result = $this->fileSaveService->createItem($itemName, $publicPath, (bool) $isFile);
+
+        return $result['success']
+            ? $this->success($result['message'])
+            : $this->error($result['message']);
     }
 
 

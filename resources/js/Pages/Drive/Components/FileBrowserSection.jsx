@@ -67,7 +67,7 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
     const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
     const [favoriteItems, setFavoriteItems] = useState(favorites);
     const favoriteFileIds = new Set(
-        favoriteItems.map((favorite) => favorite.local_file_id),
+        favoriteItems.map((favorite) => favorite.local_file.id),
     );
 
     const { cutFiles, setCutFiles, cutPath, setCutPath } =
@@ -114,7 +114,7 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
             if (allFavorited) {
                 const localFileIdSet = new Set(localFileIds);
                 const favoritesToRemove = favoriteItems.filter((favorite) =>
-                    localFileIdSet.has(favorite.local_file_id),
+                    localFileIdSet.has(favorite.local_file.id),
                 );
 
                 await Promise.all(
@@ -125,7 +125,7 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
                 setFavoriteItems((items) =>
                     items.filter(
                         (favorite) =>
-                            !localFileIdSet.has(favorite.local_file_id),
+                            !localFileIdSet.has(favorite.local_file.id),
                     ),
                 );
             } else {
@@ -163,7 +163,7 @@ const FileBrowserSection = memo(({ files, path, token, isAdmin, slug, folderExis
         );
 
         if (favorite) {
-            return toggleFavorites([favorite.local_file_id]);
+            return toggleFavorites([favorite.local_file.id]);
         }
     };
 

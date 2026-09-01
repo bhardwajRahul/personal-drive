@@ -4,17 +4,19 @@ namespace App\Services;
 
 use App\Models\Favorite;
 use App\Models\LocalFile;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class FavoriteService
 {
     public function list(): Collection
     {
-        return Favorite::with('localFile:id,filename,public_path,is_dir')
-            ->where('user_id', auth()->user()->id)
-            ->orderByDesc('favorited_at')
-            ->orderByDesc('id')
-            ->get();
+        return Favorite::getForUserQuery(auth()->user()->id)->get();
+    }
+
+    public function paginate(int $perPage): LengthAwarePaginator
+    {
+        return Favorite::getForUserQuery(auth()->user()->id)->paginate($perPage);
     }
 
     /**
@@ -58,6 +60,6 @@ class FavoriteService
             ];
         }
 
-        Favorite::upsert($rows, ['user_id', 'local_file_id'], ['updated_at']);
+        Favorite::upsert($rows, ['user_id', 'local_file_id'], ['favorited_at', 'updated_at']);
     }
 }

@@ -76,14 +76,15 @@ class PathService
 
     public function cleanDrivePublicPath(string $path): string
     {
-
         if ($path === '/drive') {
             return '';
         }
+
         if (str_starts_with($path, '/drive/')) {
-            return substr($path, 7); // remove "/drive/"
+            $path = substr($path, 7);
         }
-        return $path;
+
+        return rtrim($path, '/');
     }
 
     /**

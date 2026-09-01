@@ -14,10 +14,8 @@ class MoveFilesRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
-            'fileList' => 'required|array',
-            'fileList.*' => 'ulid',
+        return array_merge(CommonRequest::fileListRules(), [
             'destination' => ['required', ...CommonRequest::pathRules(allowSlash: true)],
-        ];
+        ]);
     }
 }

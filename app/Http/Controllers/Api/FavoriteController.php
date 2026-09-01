@@ -6,7 +6,6 @@ use App\Helpers\ResponseHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\ListFavoritesRequest;
 use App\Http\Requests\Api\StoreFavoriteRequest;
-use App\Models\Favorite;
 use App\Services\FavoriteService;
 use App\Traits\HasJsonPagination;
 use Illuminate\Http\JsonResponse;
@@ -23,11 +22,7 @@ class FavoriteController extends Controller
     {
         $perPage = $request->validated('per_page', 50);
 
-        $paginator = Favorite::with('localFile:id,filename,public_path,is_dir')
-            ->where('user_id', auth()->user()->id)
-            ->orderByDesc('favorited_at')
-            ->orderByDesc('id')
-            ->paginate($perPage);
+        $paginator = $this->favoriteService->paginate($perPage);
 
         return $this->paginateJson($paginator, 'favorites');
     }

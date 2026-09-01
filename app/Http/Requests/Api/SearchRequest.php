@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Http\Requests\CommonRequest;
 use Illuminate\Foundation\Http\FormRequest;
 
 class SearchRequest extends FormRequest
@@ -15,7 +16,7 @@ class SearchRequest extends FormRequest
     {
         return [
             'q' => ['required', 'string', 'max:255'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'per_page' => CommonRequest::perPageRules(),
         ];
     }
 }

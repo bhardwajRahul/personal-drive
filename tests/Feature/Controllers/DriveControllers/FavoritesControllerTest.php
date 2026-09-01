@@ -41,6 +41,7 @@ class FavoritesControllerTest extends BaseFeatureTest
         $response->assertOk()
             ->assertJsonCount(2, 'favorites')
             ->assertJsonPath('favorites.0.id', $newerFavorite->id)
+            ->assertJsonPath('favorites.0.local_file.id', $newerFile->id)
             ->assertJsonPath('favorites.0.local_file.filename', $newerFile->filename)
             ->assertJsonPath('favorites.1.id', $olderFavorite->id);
     }
@@ -125,6 +126,7 @@ class FavoritesControllerTest extends BaseFeatureTest
             fn (Assert $page) => $page
                 ->has('favorites', 1)
                 ->where('favorites.0.id', $favorite->id)
+                ->where('favorites.0.local_file.id', $localFile->id)
                 ->where('favorites.0.local_file.filename', $localFile->filename)
         );
     }
