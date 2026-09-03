@@ -151,6 +151,12 @@ class CommonRequestTest extends TestCase
 
         $validator = Validator::make(['username' => '12345'], ['username' => $rules]);
         $this->assertTrue($validator->passes(), 'A numeric username should pass validation.');
+
+        $validator = Validator::make(['username' => 'TestUser'], ['username' => $rules]);
+        $this->assertTrue($validator->passes(), 'A username with uppercase should pass validation.');
+
+        $validator = Validator::make(['username' => 'AdminUser2024'], ['username' => $rules]);
+        $this->assertTrue($validator->passes(), 'A mixed case username should pass validation.');
     }
     public function testItemNameRule()
     {

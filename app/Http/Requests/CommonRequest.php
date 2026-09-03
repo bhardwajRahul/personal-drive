@@ -50,7 +50,7 @@ class CommonRequest extends FormRequest
 
     public static function usernameRules(): array
     {
-        return ['required', 'string', 'regex:/^[0-9a-z\_]+$/'];
+        return ['required', 'string', 'regex:/^[0-9A-Za-z\_]+$/'];
     }
 
     public static function itemNameRule(): array
