@@ -27,6 +27,7 @@ class ShareFilesGenController extends Controller
             return $this->error('No valid files to share. Try a Resync');
         }
 
-        return redirect()->back()->with('shared_link', $result['url']);
+        session()->flash('shared_link', $result['url']);
+        return $this->success('Share created');
     }
 }

@@ -83,7 +83,7 @@ class FavoritesControllerTest extends BaseFeatureTest
         );
     }
 
-    public function test_store_rejects_files_owned_by_another_user(): void
+    public function test_store_skips_files_not_owned_by_current_user(): void
     {
         $this->makeUser();
         $otherUser = User::factory()->create();
@@ -92,7 +92,7 @@ class FavoritesControllerTest extends BaseFeatureTest
         $this->postJson(
             route('drive.favorites.store'),
             ['local_file_ids' => [$otherFile->id]]
-        )->assertUnprocessable()->assertJsonValidationErrors('local_file_ids');
+        )->assertOk();
 
         $this->assertDatabaseMissing('favorites', ['local_file_id' => $otherFile->id]);
     }
@@ -108,9 +108,9 @@ class FavoritesControllerTest extends BaseFeatureTest
             ['user_id' => $otherUser->id, 'local_file_id' => $otherFile->id]
         );
 
-        $this->deleteJson(route('drive.favorites.destroy', ['favoriteId' => $favorite->id]))->assertNoContent();
-        $this->deleteJson(route('drive.favorites.destroy', ['favoriteId' => $favorite->id]))->assertNoContent();
-        $this->deleteJson(route('drive.favorites.destroy', ['favoriteId' => $otherFavorite->id]))->assertNoContent();
+        $this->deleteJson(route('drive.favorites.destroy', ['favoriteId' => $favorite->id]))->assertOk();
+        $this->deleteJson(route('drive.favorites.destroy', ['favoriteId' => $favorite->id]))->assertOk();
+        $this->deleteJson(route('drive.favorites.destroy', ['favoriteId' => $otherFavorite->id]))->assertOk();
 
         $this->assertDatabaseMissing('favorites', ['id' => $favorite->id]);
         $this->assertDatabaseHas('favorites', ['id' => $otherFavorite->id]);

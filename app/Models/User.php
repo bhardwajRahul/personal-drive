@@ -70,4 +70,16 @@ class User extends Authenticatable
     {
         return $this->update(['google2fa_enabled' => $status]);
     }
+
+    public function getApiTokens()
+    {
+        return $this->tokens()
+            ->select('id', 'name', 'created_at', 'last_used_at', 'abilities')
+            ->get();
+    }
+
+    public function deleteToken(string $tokenId): bool
+    {
+        return (bool) $this->tokens()->where('id', $tokenId)->delete();
+    }
 }

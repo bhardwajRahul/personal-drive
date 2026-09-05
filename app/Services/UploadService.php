@@ -140,9 +140,6 @@ class UploadService
             throw UploadFileException::pathOutsideStorageRoot();
         }
         if (! $this->fileOperationsService->directoryExists($publicPath)) {
-            if (! $this->pathService->isWithinStorageRoot(Setting::getStoragePath() . DS . $publicPath)) {
-                throw UploadFileException::pathOutsideStorageRoot();
-            }
             $this->fileOperationsService->makeFolder($publicPath);
         }
         $name = $this->pathService->sanitizeFileName($file->getClientOriginalName());

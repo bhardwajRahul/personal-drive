@@ -6,20 +6,16 @@ use App\Helpers\ResponseHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AdminRequests\AdminConfigRequest;
 use App\Http\Requests\AdminRequests\TwoFactorCodeCheckRequest;
-use App\Models\LocalFile;
 use App\Models\Setting;
 use App\Services\AdminConfigService;
-use App\Services\LocalFileStatsService;
 use App\Services\TwoFactorService;
 use App\Traits\FlashMessages;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
-use UnexpectedValueException;
 
 class AdminConfigController extends Controller
 {
@@ -28,15 +24,11 @@ class AdminConfigController extends Controller
     protected AdminConfigService $adminConfigService;
     protected TwoFactorService $twoFactorService;
 
-    protected LocalFileStatsService $localFileStatsService;
-
     public function __construct(
-        AdminConfigService    $adminConfigService,
-        LocalFileStatsService $localFileStatsService,
-        TwoFactorService      $twoFactorService
+        AdminConfigService $adminConfigService,
+        TwoFactorService   $twoFactorService
     ) {
         $this->adminConfigService = $adminConfigService;
-        $this->localFileStatsService = $localFileStatsService;
         $this->twoFactorService = $twoFactorService;
     }
 
@@ -46,14 +38,6 @@ class AdminConfigController extends Controller
         $storagePath = Setting::getStoragePath();
         $twoFactorStatus = $this->twoFactorService->getStatus();
         $show_two_factor_option = !config('app.disable_auth');
-
-        $user = Auth::user();
-        $tokens = $user->tokens()
-            ->select('id', 'name', 'created_at', 'last_used_at', 'abilities')
-            ->get();
-
-        $server_configs = config('api_docs.server_configs');
-        $api_sections = config('api_docs.api_sections');
 
         return Inertia::render(
             'Admin/Settings',
@@ -65,54 +49,27 @@ class AdminConfigController extends Controller
                 'setupMode' => $setupMode,
                 'twoFactorStatus' => $twoFactorStatus,
                 'show_two_factor_option' => $show_two_factor_option,
-                'tokens' => $tokens,
-                'server_configs' => $server_configs,
-                'api_sections' => $api_sections,
-                'flash' => [
-                    'plain_text_token' => session('plain_text_token'),
-                    'token_name' => session('token_name'),
-                ],
+                'tokens' => Auth::user()->getApiTokens(),
+                'server_configs' => config('api_docs.server_configs'),
+                'api_sections' => config('api_docs.api_sections'),
             ]
         );
     }
 
     public function update(AdminConfigRequest $request): RedirectResponse
     {
-        $storagePath = $request->validated('storage_path');
-        $storagePath = trim(rtrim($storagePath, '/'));
-        try {
-            $updateStoragePathRes = DB::transaction(
-                function () use ($storagePath): array {
-                    $result = $this->adminConfigService->updateStoragePath($storagePath);
-                    if ($result['status']) {
-                        LocalFile::clearTable();
-                        $this->localFileStatsService->generateStats();
-                    }
-                    return $result;
-                }
-            );
-        } catch (UnexpectedValueException) {
-            return $this->error(
-                'Storage scan failed because a file or folder cannot be accessed. Check its permissions and try again.'
-            );
-        }
-        session()->flash('message', $updateStoragePathRes['message']);
-        session()->flash('status', $updateStoragePathRes['status']);
-        if ($updateStoragePathRes['status']) {
-            return redirect()->route('drive');
-        }
+        $result = $this->adminConfigService->updateStoragePath(
+            $request->validated('storage_path')
+        );
 
-        return redirect()->back();
+        return $result['status']
+            ? $this->successTo('drive', $result['message'])
+            : $this->error($result['message']);
     }
 
     public function twoFactorGetQr(): JsonResponse
     {
-        if ($this->twoFactorService->isTwoFactorEnabled()) {
-            $twoFactorSecret = $this->twoFactorService->getSecret();
-        } else {
-            $twoFactorSecret = $this->twoFactorService->generateTwoFactorSecret();
-            $this->twoFactorService->setSecret($twoFactorSecret);
-        }
+        $twoFactorSecret = $this->twoFactorService->getSecret();
         $qrCodeSvgStr = $this->twoFactorService->generateQr($twoFactorSecret);
         return ResponseHelper::json($qrCodeSvgStr);
     }
@@ -126,6 +83,7 @@ class AdminConfigController extends Controller
         $twoFactorSecret = $this->twoFactorService->getSecret();
         $isVerified = $this->twoFactorService->twoFactorCodeCheck($twoFactorCode, $twoFactorSecret);
         if ($isVerified) {
+            $this->twoFactorService->setSecret($twoFactorSecret);
             $this->twoFactorService->setStatus(true);
             return $this->success('Two Factor Authentication Enabled');
         }

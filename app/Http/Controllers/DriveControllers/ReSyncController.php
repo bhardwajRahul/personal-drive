@@ -35,7 +35,7 @@ class ReSyncController extends Controller
             );
         } catch (UnexpectedValueException) {
             return $this->error(
-                'Storage scan failed because a file or folder cannot be accessed. Check its permissions and try again.'
+                'Scan failed. Check permissions.'
             );
         }
         if ($filesUpdated > 0) {

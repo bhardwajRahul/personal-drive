@@ -2,17 +2,21 @@
 
 namespace App\Http\Controllers\DriveControllers;
 
+use App\Helpers\ResponseHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DriveRequests\StoreFavoritesRequest;
 use App\Services\FavoriteService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Response;
 
 class FavoritesController extends Controller
 {
+    protected FavoriteService $favoriteService;
+
     public function __construct(
-        private FavoriteService $favoriteService,
-    ) {}
+        FavoriteService $favoriteService,
+    ) {
+        $this->favoriteService = $favoriteService;
+    }
 
     public function index(): JsonResponse
     {
@@ -33,9 +37,9 @@ class FavoritesController extends Controller
         return response()->json(['favorites' => $result['favorites']]);
     }
 
-    public function destroy(string $favoriteId): Response
+    public function destroy(string $favoriteId): JsonResponse
     {
-        $this->favoriteService->remove($favoriteId);
-        return response()->noContent();
+        $result = $this->favoriteService->remove($favoriteId);
+        return ResponseHelper::json($result['message'], $result['success']);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\AdminControllers;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AdminRequests\SetupAccountRequest;
 use App\Models\User;
+use App\Traits\FlashMessages;
 use Exception;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Artisan;
@@ -14,6 +15,8 @@ use Inertia\Response;
 
 class SetupController extends Controller
 {
+    use FlashMessages;
+
     public function show(): Response
     {
         return Inertia::render('Admin/Setup');
@@ -25,20 +28,15 @@ class SetupController extends Controller
         try {
             $user = User::create(
                 [
-                'username' => $request->username,
+                'username' => $request->validated('username'),
                 'is_admin' => 1,
-                'password' => bcrypt($request->password),
+                'password' => bcrypt($request->validated('password')),
                 ]
             );
-            $message = 'Created User successfully';
-            $status = true;
             Auth::login($user, true);
+            return $this->successTo('admin-config', 'Created User successfully', ['setupMode' => true]);
         } catch (Exception) {
-            $status = false;
-            $message = 'Error. could not create user. Try re-installing, checking permissions for storage folder';
+            return $this->errorTo('admin-config', 'Error. could not create user. Try re-installing, checking permissions for storage folder', ['setupMode' => true]);
         }
-        $request->session()->flash('status', $status);
-        $request->session()->flash('message', $message);
-        return redirect()->route('admin-config', ['setupMode' => true]);
     }
 }

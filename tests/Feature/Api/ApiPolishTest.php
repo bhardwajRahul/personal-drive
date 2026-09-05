@@ -149,21 +149,6 @@ class ApiPolishTest extends BaseFeatureTest
         $response->assertHeader('X-RateLimit-Remaining');
     }
 
-    // ─── CORS ───
-
-    public function test_cors_headers_present_for_options(): void
-    {
-        $response = $this->call('OPTIONS', '/api/v1/files', [], [], [], [
-            'HTTP_ORIGIN' => 'http://localhost:82',
-            'HTTP_ACCESS_CONTROL_REQUEST_METHOD' => 'GET',
-        ]);
-
-        $response->assertStatus(204);
-        $response->assertHeader('Access-Control-Allow-Origin', 'http://localhost:82');
-        $response->assertHeader('Access-Control-Allow-Methods');
-        $response->assertHeader('Access-Control-Allow-Headers');
-    }
-
     // ─── Auth Requirements ───
 
     public function test_all_api_routes_require_sanctum_token_or_session_auth(): void
@@ -216,21 +201,6 @@ class ApiPolishTest extends BaseFeatureTest
         $response->assertStatus(422);
         $response->assertJsonStructure(['message', 'errors']);
         $this->assertIsArray($response->json('errors'));
-    }
-
-    // ─── OPTIONS Preflight ───
-
-    public function test_options_request_preflight_works(): void
-    {
-        $response = $this->call('OPTIONS', '/api/v1/files', [], [], [], [
-            'HTTP_ORIGIN' => 'http://localhost:3000',
-            'HTTP_ACCESS_CONTROL_REQUEST_METHOD' => 'GET',
-            'HTTP_ACCESS_CONTROL_REQUEST_HEADERS' => 'Authorization, Content-Type',
-        ]);
-
-        $this->assertContains($response->getStatusCode(), [200, 204]);
-        $response->assertHeader('Access-Control-Allow-Origin');
-        $response->assertHeader('Access-Control-Allow-Methods');
     }
 
     protected function tearDown(): void

@@ -17,15 +17,6 @@ class Favorite extends Model
 
     protected $hidden = ['user_id', 'local_file_id'];
 
-    protected static function booted(): void
-    {
-        static::creating(
-            function (self $favorite): void {
-                $favorite->favorited_at ??= now();
-            }
-        );
-    }
-
     protected function casts(): array
     {
         return [
@@ -33,12 +24,19 @@ class Favorite extends Model
         ];
     }
 
-    public static function getForUserQuery(int $userId): Builder
+    public static function listForCurrentUser(): Builder
     {
         return static::with('localFile:id,filename,public_path,is_dir')
-            ->where('user_id', $userId)
+            ->where('user_id', auth()->user()->id)
             ->orderByDesc('favorited_at')
             ->orderByDesc('id');
+    }
+
+    public static function removeForUser(string $id): bool
+    {
+        return static::where('id', $id)
+            ->where('user_id', auth()->user()->id)
+            ->delete() > 0;
     }
 
     public function user(): BelongsTo

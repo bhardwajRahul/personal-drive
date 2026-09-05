@@ -30,16 +30,9 @@ class HandleInertiaMiddleware extends Middleware
         $flashA = [
             'message' => $request->session()->get('message'),
             'status' => $request->session()->get('status'),
+            'shared_link' => $request->session()->get('shared_link'),
+            'more_info' => $request->session()->get('more_info'),
         ];
-        $sharedLink = $request->session()->get('shared_link');
-        if ($sharedLink) {
-            $flashA['shared_link'] = $sharedLink;
-        }
-
-        $moreInfo = $request->session()->get('more_info');
-        if ($moreInfo) {
-            $flashA['more_info'] = $moreInfo;
-        }
 
         return [
             ...parent::share($request),

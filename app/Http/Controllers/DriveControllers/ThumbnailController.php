@@ -28,8 +28,8 @@ class ThumbnailController extends Controller
         LocalFile::setHasThumbnail($fileIds);
         $thumbsGenerated = $this->thumbnailService->genThumbnailsForFileIds($fileIds);
         if ($thumbsGenerated === 0) {
-            session()->flash('message', 'No thumbnails generated. No valid files found');
+            return $this->errorTo('drive', 'No thumbnails generated. No valid files found', ['path' => $publicPath]);
         }
-        return redirect()->route('drive', ['path' => $publicPath]);
+        return $this->successTo('drive', 'Thumbnails generated', ['path' => $publicPath]);
     }
 }

@@ -18,8 +18,8 @@ class TokenInertiaFlowTest extends BaseFeatureTest
         $this->withoutMiddleware(ValidateCsrfToken::class);
 
         return $this->post($uri, $data, [
-            'X-Inertia' => 'true',
-            'X-Inertia-Version' => md5('1'),
+            'HTTP_X-Inertia' => 'true',
+            'HTTP_X-Inertia-Version' => '1',
         ]);
     }
 
@@ -31,9 +31,8 @@ class TokenInertiaFlowTest extends BaseFeatureTest
 
         $response = $this->webPost('/api-tokens', ['name' => 'my-token']);
 
-        // Inertia redirects use 303, should NOT be JSON
-        $this->assertContains($response->status(), [302, 303]);
-        $response->assertRedirect();
+        $response->assertStatus(302);
+        $this->assertFalse($response->headers->has('X-Inertia'));
     }
 
     public function test_inertia_create_token_with_empty_name_returns_redirect_not_json(): void
@@ -42,33 +41,34 @@ class TokenInertiaFlowTest extends BaseFeatureTest
 
         $response = $this->webPost('/api-tokens', ['name' => '']);
 
-        // Validation failure should redirect back (302/303), NOT return JSON 422
-        $this->assertContains($response->status(), [302, 303]);
-        $response->assertRedirect();
+        $response->assertStatus(302);
+        $this->assertFalse($response->headers->has('X-Inertia'));
     }
 
     public function test_inertia_create_token_succeeds_and_token_exists_in_db(): void
     {
         $this->makeUserUsingSetup();
 
-        $this->webPost('/api-tokens', ['name' => 'working-token']);
+        $response = $this->webPost('/api-tokens', ['name' => 'test-token']);
 
-        $this->assertDatabaseHas('personal_access_tokens', ['name' => 'working-token']);
+        $response->assertStatus(302);
+        $this->assertDatabaseHas('personal_access_tokens', ['name' => 'test-token']);
     }
 
     public function test_inertia_delete_token_succeeds(): void
     {
         $this->makeUserUsingSetup();
-        $user = User::first();
-        $token = $user->createToken('to-delete', ['api']);
 
-        $response = $this->delete('/api-tokens/' . $token->accessToken->id, [], [
-            'X-Inertia' => 'true',
-            'X-Inertia-Version' => md5('1'),
+        $this->webPost('/api-tokens', ['name' => 'to-delete']);
+        $token = \Laravel\Sanctum\PersonalAccessToken::first();
+
+        $response = $this->delete("/api-tokens/{$token->id}", [], [
+            'HTTP_X-Inertia' => 'true',
+            'HTTP_X-Inertia-Version' => '1',
         ]);
 
-        $this->assertContains($response->status(), [302, 303]);
-        $this->assertDatabaseMissing('personal_access_tokens', ['name' => 'to-delete']);
+        $response->assertRedirect();
+        $this->assertDatabaseMissing('personal_access_tokens', ['id' => $token->id]);
     }
 
     // ─── Token display after creation ───
@@ -77,12 +77,9 @@ class TokenInertiaFlowTest extends BaseFeatureTest
     {
         $this->makeUserUsingSetup();
 
-        // Create a token via the controller action
-        $this->webPost('/api-tokens', ['name' => 'display-test']);
+        $this->webPost('/api-tokens', ['name' => 'display-token']);
 
-        // Follow the redirect chain: /api-tokens -> /admin-config -> Settings page
         $response = $this->followingRedirects()->get('/admin-config');
-
         $response->assertOk();
         $response->assertInertia(
             fn($page) => $page
@@ -95,11 +92,13 @@ class TokenInertiaFlowTest extends BaseFeatureTest
     {
         $this->makeUserUsingSetup();
 
-        $response = $this->followingRedirects()->get('/admin-config');
-
+        $response = $this->get('/admin-config');
         $response->assertOk();
         $response->assertInertia(
-            fn($page) => $page->component('Admin/Settings')
+            fn($page) => $page
+                ->component('Admin/Settings')
+                ->has('server_configs')
+                ->has('api_sections')
         );
     }
 
@@ -107,16 +106,16 @@ class TokenInertiaFlowTest extends BaseFeatureTest
     {
         $this->makeUserUsingSetup();
 
-        // Create a token - flash data is set in session
+        // Create a token - flash data is set in session via $moreInfo
         $this->webPost('/api-tokens', ['name' => 'once-only']);
 
-        // First visit - follow redirect chain to Settings, token should be present
+        // First visit - follow redirect chain to Settings, token should be present in more_info
         $firstVisit = $this->followingRedirects()->get('/admin-config');
         $firstVisit->assertOk();
         $firstVisit->assertInertia(
             fn($page) => $page
                 ->component('Admin/Settings')
-                ->has('flash.plain_text_token')
+                ->has('flash.more_info.plain_text_token')
         );
 
         // Second visit - flash data should be consumed, no token shown
@@ -125,7 +124,7 @@ class TokenInertiaFlowTest extends BaseFeatureTest
         $secondVisit->assertInertia(
             fn($page) => $page
                 ->component('Admin/Settings')
-                ->where('flash.plain_text_token', null)
+                ->where('flash.more_info', null)
         );
     }
 }

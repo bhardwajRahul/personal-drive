@@ -21,7 +21,6 @@ use App\Services\UploadService;
 use App\Traits\HasJsonPagination;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Response as ResponseFacade;
 use Exception;
 
 class FileController extends Controller
@@ -32,6 +31,7 @@ class FileController extends Controller
     protected UploadService $uploadService;
     protected FileDeleteService $fileDeleteService;
     protected FileMoveService $fileMoveService;
+    protected FileRenameService $fileRenameService;
     protected FileSaveService $fileSaveService;
 
     public function __construct(

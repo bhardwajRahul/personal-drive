@@ -92,7 +92,7 @@ class UploadController extends Controller
 
     public function abortReplace(ReplaceAbortRequest $request): RedirectResponse
     {
-        if ($request->action === 'abort') {
+        if ($request->validated('action') === 'abort') {
             $this->uploadService->cleanOldTempFiles();
             $new_file_copied_num = session()->pull('new_file_copied_num') ?? 0;
             $duplicate_files_num = session()->pull('duplicate_files_num') ?? 0;
@@ -101,7 +101,7 @@ class UploadController extends Controller
                 'New files copied: ' . $new_file_copied_num . '. Files skipped: ' . $duplicate_files_num
             );
         }
-        if ($request->action === 'overwrite') {
+        if ($request->validated('action') === 'overwrite') {
             $res = $this->uploadService->syncTempToStorage();
             if (!$res) {
                 return $this->error('overwriting failed !');

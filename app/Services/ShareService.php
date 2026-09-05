@@ -10,22 +10,12 @@ use Illuminate\Support\Str;
 
 class ShareService
 {
-    /**
-     * @param array<string> $fileIds
-     * @return array{success: bool, message: string, share?: Share, url?: string}
-     */
     public function create(array $fileIds, ?string $slug = '', ?string $password = '', ?string $expiry = ''): array
     {
         $localFiles = LocalFile::getByIds($fileIds)->get();
 
         if ($localFiles->count() !== count($fileIds)) {
             return ['success' => false, 'message' => 'Some files not found'];
-        }
-
-        if ($localFiles->isEmpty()
-            || $localFiles->contains(fn (LocalFile $file) => !$file->isValidFile() && !$file->isValidDir())
-        ) {
-            return ['success' => false, 'message' => 'No valid files to share. Try a Resync'];
         }
 
         $slug = $slug ?: Str::random(10);
@@ -46,9 +36,7 @@ class ShareService
         ];
     }
 
-    /**
-     * @return array{success: bool, message: string, share?: Share}
-     */
+
     public function toggle(int $id): array
     {
         $share = Share::whereById($id)->first();

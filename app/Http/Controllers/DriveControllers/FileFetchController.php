@@ -105,7 +105,7 @@ class FileFetchController extends Controller
     {
         $fileId = $request->validated('id');
 
-        $file = LocalFile::find($fileId);
+        $file = LocalFile::getById($fileId);
         if (! $file || ! $file->file_type) {
             throw FetchFileException::notFoundStream();
         }

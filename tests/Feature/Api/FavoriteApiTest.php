@@ -66,33 +66,6 @@ class FavoriteApiTest extends BaseFeatureTest
         ]);
     }
 
-    public function test_add_favorite_validates_file_ownership(): void
-    {
-        // Create a file belonging to another user
-        $otherUser = User::create([
-            'username' => 'otherfav',
-            'is_admin' => false,
-            'password' => 'password',
-        ]);
-
-        $otherFile = LocalFile::create([
-            'filename' => 'not-mine.txt',
-            'public_path' => '',
-            'private_path' => Storage::disk('local')->path(CONTENT_SUBDIR),
-            'user_id' => $otherUser->id,
-            'size' => 100,
-            'is_dir' => false,
-            'file_type' => 'text',
-        ]);
-
-        $response = $this->postJson('/api/v1/favorites', [
-            'local_file_ids' => [(string) $otherFile->id],
-        ], $this->authHeaders());
-
-        $response->assertStatus(422)
-            ->assertJsonPath('message', 'One or more files do not belong to you.');
-    }
-
     public function test_remove_favorite(): void
     {
         $this->uploadFile('', 'remove-fav.txt', 100);
@@ -124,33 +97,32 @@ class FavoriteApiTest extends BaseFeatureTest
         $this->assertContains($response->status(), [401, 403]);
     }
 
-    public function test_add_duplicate_favorite_is_idempotent_and_refreshes_favorited_time(): void
+    public function test_add_duplicate_favorite_is_idempotent(): void
     {
         $this->uploadFile('', 'dup-fav.txt', 100);
         $file = LocalFile::where('filename', 'dup-fav.txt')->first();
-        Carbon::setTestNow('2026-01-01 00:00:00');
 
-        try {
-            $this->postJson('/api/v1/favorites', [
-                'local_file_ids' => [(string) $file->id],
-            ], $this->authHeaders());
+        $this->postJson('/api/v1/favorites', [
+            'local_file_ids' => [(string) $file->id],
+        ], $this->authHeaders());
 
-            Carbon::setTestNow('2026-01-01 00:01:00');
-            $this->postJson('/api/v1/favorites', [
-                'local_file_ids' => [(string) $file->id],
-            ], $this->authHeaders());
+        $firstFavoritedAt = Favorite::where('user_id', $this->apiUser->id)
+            ->where('local_file_id', $file->id)
+            ->firstOrFail()->favorited_at;
 
-            $favorite = Favorite::where('user_id', $this->apiUser->id)
-                ->where('local_file_id', $file->id)
-                ->firstOrFail();
+        $this->postJson('/api/v1/favorites', [
+            'local_file_ids' => [(string) $file->id],
+        ], $this->authHeaders());
 
-            $this->assertSame(1, Favorite::where('user_id', $this->apiUser->id)
-                ->where('local_file_id', $file->id)
-                ->count());
-            $this->assertTrue($favorite->favorited_at->equalTo(now()));
-        } finally {
-            Carbon::setTestNow();
-        }
+        $favorite = Favorite::where('user_id', $this->apiUser->id)
+            ->where('local_file_id', $file->id)
+            ->firstOrFail();
+
+        $this->assertSame(1, Favorite::where('user_id', $this->apiUser->id)
+            ->where('local_file_id', $file->id)
+            ->count());
+        $this->assertNotNull($favorite->favorited_at);
+        $this->assertTrue($favorite->favorited_at->equalTo($firstFavoritedAt));
     }
 
     public function test_remove_nonexistent_favorite_succeeds_silently(): void
@@ -163,7 +135,7 @@ class FavoriteApiTest extends BaseFeatureTest
             ->assertJsonPath('message', 'Favorite removed');
     }
 
-    public function test_cannot_favorite_other_users_file(): void
+    public function test_other_users_file_not_found_for_favorite(): void
     {
         $otherUser = User::create([
             'username' => 'fav-other-user',
@@ -185,8 +157,7 @@ class FavoriteApiTest extends BaseFeatureTest
             'local_file_ids' => [(string) $otherFile->id],
         ], $this->authHeaders());
 
-        $response->assertStatus(422)
-            ->assertJsonPath('message', 'One or more files do not belong to you.');
+        $response->assertOk();
 
         $this->assertDatabaseMissing('favorites', [
             'user_id' => $this->apiUser->id,

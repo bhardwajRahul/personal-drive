@@ -4,16 +4,13 @@ namespace Tests\Feature\Controllers\AdminControllers;
 
 use App\Models\LocalFile;
 use App\Models\Setting;
+use App\Services\AdminConfigService;
 use App\Services\FileOperationsService;
-use App\Services\LocalFileStatsService;
 use App\Services\PathService;
 use Illuminate\Testing\TestResponse;
 use Mockery;
 use PragmaRX\Google2FAQRCode\Google2FA;
 use Tests\Feature\BaseFeatureTest;
-use ReflectionProperty;
-use UnexpectedValueException;
-
 use const false;
 
 class AdminConfigControllerTest extends BaseFeatureTest
@@ -74,17 +71,13 @@ class AdminConfigControllerTest extends BaseFeatureTest
         $this->uploadFile('', 'preserved.txt');
         $file = LocalFile::firstOrFail();
 
-        $statsService = Mockery::mock(LocalFileStatsService::class);
-        $statsService->shouldReceive('generateStats')
+        $adminConfigServiceMock = Mockery::mock(AdminConfigService::class)->makePartial();
+        $adminConfigServiceMock->shouldReceive('updateStoragePath')
             ->once()
-            ->andThrow(new UnexpectedValueException('Permission denied'));
+            ->andReturn(['status' => false, 'message' => 'Scan failed. Check permissions.']);
 
-        $controller = app('router')
-            ->getRoutes()
-            ->getByName('admin-config.update')
-            ->getController();
-        $statsServiceProperty = new ReflectionProperty($controller, 'localFileStatsService');
-        $statsServiceProperty->setValue($controller, $statsService);
+        $this->app->instance(AdminConfigService::class, $adminConfigServiceMock);
+        app('router')->getRoutes()->getByName('admin-config.update')->flushController();
 
         $response = $this->setStoragePath($this->newStoragePath);
         $response->assertSessionHas('status', false);
@@ -92,7 +85,7 @@ class AdminConfigControllerTest extends BaseFeatureTest
 
         $this->assertSessionHas(
             $response,
-            'Storage scan failed because a file or folder cannot be accessed. Check its permissions and try again.'
+            'Scan failed. Check permissions.'
         );
         $this->assertDatabaseHas('local_files', ['id' => $file->id]);
     }

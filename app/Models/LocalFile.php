@@ -40,6 +40,11 @@ class LocalFile extends Model
         return self::whereIn('id', $fileIds);
     }
 
+    public static function getByIdsForUser(array $fileIds): Builder
+    {
+        return self::where('user_id', auth()->user()->id)->whereIn('id', $fileIds);
+    }
+
     public static function getByPathAndName(string $publicPath, string $filename): ?self
     {
         return self::where('filename', $filename)
@@ -103,15 +108,10 @@ class LocalFile extends Model
         return $this->public_path ? $this->public_path . DS : '';
     }
 
-    public static function searchFiles(string $searchQuery, ?int $userId = null): Builder
+    public static function searchFiles(string $searchQuery): Builder
     {
-        $query = static::where('filename', 'like', '%' . $searchQuery . '%');
-
-        if ($userId !== null) {
-            $query->where('user_id', $userId);
-        }
-
-        return $query;
+        return static::where('filename', 'like', '%' . $searchQuery . '%')
+            ->where('user_id', auth()->user()->id);
     }
 
     public static function getIdsByLikePublicPath(string $search): array

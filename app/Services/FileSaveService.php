@@ -37,7 +37,7 @@ class FileSaveService
         }
 
         try {
-            if (@file_put_contents($privatePathFile, $content) === false) {
+            if (file_put_contents($privatePathFile, $content) === false) {
                 return ['success' => false, 'message' => 'Could not save file'];
             }
 
@@ -55,9 +55,10 @@ class FileSaveService
     {
         $privatePath = $this->pathService->genPrivatePathFromPublic($publicPath);
 
+        $pathPlusRoot = $this->pathService->getPlusContentRoot($publicPath, $itemName);
         $created = $isFile
-            ? $this->fileOperationsService->makeFile($this->pathService->getPlusContentRoot($publicPath, $itemName))
-            : $this->fileOperationsService->makeFolder($this->pathService->getPlusContentRoot($publicPath, $itemName));
+            ? $this->fileOperationsService->makeFile($pathPlusRoot)
+            : $this->fileOperationsService->makeFolder($pathPlusRoot);
 
         if (!$created) {
             return ['success' => false, 'message' => 'Create ' . ($isFile ? 'file' : 'folder') . ' failed'];

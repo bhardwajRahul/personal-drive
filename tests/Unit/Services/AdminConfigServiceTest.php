@@ -5,6 +5,7 @@ namespace Tests\Unit\Services;
 use App\Models\Setting;
 use App\Services\AdminConfigService;
 use App\Services\FileOperationsService;
+use App\Services\LocalFileStatsService;
 use Mockery;
 use Tests\TestCase;
 
@@ -34,10 +35,11 @@ class AdminConfigServiceTest extends TestCase
     {
         parent::setUp();
         $this->uploadService = Mockery::mock(FileOperationsService::class);
+        $localFileStatsService = Mockery::mock(LocalFileStatsService::class);
         $this->setting = Mockery::mock(Setting::class);
         $this->adminConfigService = Mockery::mock(
             AdminConfigService::class,
-            [ $this->uploadService, $this->setting]
+            [ $this->uploadService, $localFileStatsService, $this->setting]
         )
             ->makePartial();
     }

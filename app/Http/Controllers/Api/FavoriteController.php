@@ -40,7 +40,7 @@ class FavoriteController extends Controller
 
     public function destroy(string $id): JsonResponse
     {
-        $this->favoriteService->remove($id);
-        return ResponseHelper::json('Favorite removed');
+        $result = $this->favoriteService->remove($id);
+        return ResponseHelper::json($result['message']);
     }
 }

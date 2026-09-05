@@ -19,7 +19,7 @@ class FavoriteTest extends TestCase
         $favorite = Favorite::factory()->create();
 
         $this->assertTrue(Str::isUlid($favorite->id));
-        $this->assertNotNull($favorite->favorited_at);
+        $this->assertNotNull($favorite->refresh()->favorited_at);
     }
 
     public function test_favorite_belongs_to_its_user_and_local_file()

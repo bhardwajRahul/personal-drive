@@ -43,7 +43,7 @@ class LocalFileStatsService
             'public_path' => $publicPath,
             'private_path' => $privatePath,
             'size' => $file->isDir() ? '' : $file->getSize(),
-            'user_id' => auth()->user()->id ?? 1,
+            'user_id' => auth()->user()->id,
             'file_type' => $this->getFileType($file)
         ];
     }

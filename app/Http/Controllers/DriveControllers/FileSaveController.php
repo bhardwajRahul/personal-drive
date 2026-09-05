@@ -10,8 +10,10 @@ use Illuminate\Http\JsonResponse;
 
 class FileSaveController extends Controller
 {
-    public function __construct(private FileSaveService $fileSaveService)
+    protected FileSaveService $fileSaveService;
+    public function __construct(FileSaveService $fileSaveService)
     {
+        $this->fileSaveService = $fileSaveService;
     }
 
     public function update(FileSaveRequest $request): JsonResponse

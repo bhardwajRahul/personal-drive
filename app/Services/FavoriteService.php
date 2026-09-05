@@ -11,12 +11,12 @@ class FavoriteService
 {
     public function list(): Collection
     {
-        return Favorite::getForUserQuery(auth()->user()->id)->get();
+        return Favorite::listForCurrentUser()->get();
     }
 
     public function paginate(int $perPage): LengthAwarePaginator
     {
-        return Favorite::getForUserQuery(auth()->user()->id)->paginate($perPage);
+        return Favorite::listForCurrentUser()->paginate($perPage);
     }
 
     /**
@@ -26,40 +26,31 @@ class FavoriteService
     public function store(array $localFileIds): array
     {
         $localFileIds = array_values(array_unique($localFileIds));
-        $userId = auth()->user()->id;
 
-        $localFiles = LocalFile::where('user_id', $userId)
-            ->whereIn('id', $localFileIds)
-            ->get();
+        $localFiles = LocalFile::getByIdsForUser($localFileIds)->get();
 
-        if ($localFiles->count() !== count($localFileIds)) {
-            return ['success' => false, 'message' => 'One or more files do not belong to you.'];
-        }
-
-        $this->upsertFavorites($userId, $localFiles);
+        $this->upsertFavorites($localFiles);
 
         return ['success' => true, 'message' => 'Favorites updated', 'favorites' => $this->list()];
     }
 
-    public function remove(string $favoriteId): void
+    public function remove(string $favoriteId): array
     {
-        Favorite::where('id', $favoriteId)
-            ->where('user_id', auth()->user()->id)
-            ->delete();
+        Favorite::removeForUser($favoriteId);
+
+        return ['success' => true, 'message' => 'Favorite removed'];
     }
 
-    private function upsertFavorites(int $userId, Collection $localFiles): void
+    private function upsertFavorites(Collection $localFiles): void
     {
         $rows = [];
-        $now = now();
         foreach ($localFiles as $localFile) {
             $rows[] = [
-                'user_id' => $userId,
+                'user_id' => auth()->user()->id,
                 'local_file_id' => $localFile->id,
-                'favorited_at' => $now,
             ];
         }
 
-        Favorite::upsert($rows, ['user_id', 'local_file_id'], ['favorited_at', 'updated_at']);
+        Favorite::upsert($rows, ['user_id', 'local_file_id'], ['updated_at']);
     }
 }
