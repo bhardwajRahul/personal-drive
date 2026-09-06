@@ -18,6 +18,15 @@ class ShareService
             return ['success' => false, 'message' => 'Some files not found'];
         }
 
+
+        if (
+            $localFiles
+                ->filter(fn(LocalFile $file) => $file->isInvalid())
+                ->isNotEmpty()
+        ) {
+            return ['success' => false, 'message' => 'File(s) not found on storage'];
+        }
+
         $slug = $slug ?: Str::random(10);
         $hashedPassword = $password ? Hash::make($password) : '';
         $share = Share::add($slug, $hashedPassword, $expiry, $localFiles->first()->public_path);

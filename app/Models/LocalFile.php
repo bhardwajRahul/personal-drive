@@ -182,4 +182,10 @@ class LocalFile extends Model
     {
         return is_dir($this->getPrivatePathNameForFile()) && $this->is_dir;
     }
+
+    public function isInvalid(): bool
+    {
+        return !$this->isValidFile() && !$this->isValidDir();
+    }
+
 }
