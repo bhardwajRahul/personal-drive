@@ -8,31 +8,78 @@ use Illuminate\Support\Facades\File;
 
 class FileDeleteService
 {
-    public function deleteFiles(Builder $filesInDB, string $rootStoragePath): int
+    private array $deletedIds = [];
+
+    private function checkAccess(string $path): string
     {
-        $filesDeleted = 0;
+        $parent = dirname($path);
+
+        if (!is_executable($parent)) {
+            return 'unreadable';
+        }
+
+        if (!file_exists($path)) {
+            return 'already_deleted';
+        }
+
+        if (!is_writable($parent)) {
+            return 'readonly';
+        }
+
+        return 'deletable';
+    }
+
+    public function deleteFiles(Builder $filesInDB, string $rootStoragePath): array
+    {
+        $this->deletedIds = [];
+        $unreadableIds = [];
+        $readonlyIds = [];
 
         foreach ($filesInDB->get() as $file) {
-            $privateFilePathName = $file->getPrivatePathNameForFile();
-            if (!file_exists($privateFilePathName)) {
-                $filesDeleted++;
-                continue;
-            }
+            $path = $file->getPrivatePathNameForFile();
 
-            if ($this->handleDirectoryDeletion($file, $privateFilePathName, $rootStoragePath)) {
-                $filesDeleted++;
-            }
+            switch ($this->checkAccess($path)) {
+                case 'unreadable':
+                    $unreadableIds[] = $file->id;
+                    continue 2;
 
-            // Handle file deletion
-            if ($this->isDeletableFile($file)
-                && $this->isPathWithinStorage($privateFilePathName, $rootStoragePath)
-                && unlink($privateFilePathName)
-            ) {
-                $filesDeleted++;
+                case 'readonly':
+                    $readonlyIds[] = $file->id;
+                    continue 2;
+
+                case 'already_deleted':
+                    $this->deletedIds[] = $file->id;
+                    continue 2;
+
+                case 'deletable':
+                    if ($this->handleDirectoryDeletion($file, $path, $rootStoragePath)) {
+                        $this->deletedIds[] = $file->id;
+                        continue 2;
+                    }
+
+                    if (
+                        $this->isDeletableFile($file) &&
+                        $this->isPathWithinStorage($path, $rootStoragePath) &&
+                        @unlink($path) &&
+                        !file_exists($path)
+                    ) {
+                        $this->deletedIds[] = $file->id;
+                        continue 2;
+                    }
+
+                    $readonlyIds[] = $file->id; // looked deletable but failed anyway (race condition)
             }
         }
 
-        return $filesDeleted;
+        if ($this->deletedIds) {
+            LocalFile::getByIds($this->deletedIds)->delete();
+        }
+
+        return [
+            'deleted' => $this->deletedIds,
+            'unreadable' => $unreadableIds,
+            'readonly' => $readonlyIds,
+        ];
     }
 
     protected function handleDirectoryDeletion(
@@ -40,12 +87,14 @@ class FileDeleteService
         string $privateFilePathName,
         string $rootStoragePath
     ): bool {
-        if ($this->isDeletableDirectory($file, $privateFilePathName)
+        if (
+            $this->isDeletableDirectory($file, $privateFilePathName)
             && $this->isPathWithinStorage($privateFilePathName, $rootStoragePath)
         ) {
-            File::deleteDirectory($privateFilePathName);
-            $file->deleteUsingPublicPath();
-            return true;
+            if (File::deleteDirectory($privateFilePathName)) {
+                $file->deleteUsingPublicPath();
+                return true;
+            }
         }
         return false;
     }

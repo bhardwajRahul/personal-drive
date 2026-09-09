@@ -124,7 +124,8 @@ class LocalFileStatsService
 
         return new RecursiveIteratorIterator(
             $directoryIterator,
-            RecursiveIteratorIterator::CHILD_FIRST
+            RecursiveIteratorIterator::SELF_FIRST,
+            RecursiveIteratorIterator::CATCH_GET_CHILD
         );
     }
 

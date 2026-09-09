@@ -220,7 +220,7 @@ class FileApiTest extends BaseFeatureTest
         $response = $this->deleteJson("/api/v1/files/{$file->id}", [], $this->authHeaders());
 
         $response->assertOk()
-            ->assertJsonPath('message', 'Files deleted');
+            ->assertJsonPath('message', 'Deleted 1 files');
         $this->assertDatabaseMissing('local_files', ['id' => $file->id]);
     }
 

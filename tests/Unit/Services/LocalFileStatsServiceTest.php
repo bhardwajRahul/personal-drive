@@ -35,6 +35,13 @@ class LocalFileStatsServiceTest extends TestCase
 
     protected function tearDown(): void
     {
+        // Restore any locked directories before cleanup
+        $contentDir = $this->tmpDir . DS . CONTENT_SUBDIR;
+        $lockedDir = $contentDir . DS . 'locked';
+        if (is_dir($lockedDir)) {
+            chmod($lockedDir, 0755);
+        }
+
         // Clean up temp files
         if (is_dir($this->tmpDir)) {
             $it = new \RecursiveIteratorIterator(
@@ -217,16 +224,32 @@ class LocalFileStatsServiceTest extends TestCase
 
     public function test_generateStats_returns_zero_when_no_private_path(): void
     {
-        $this->pathServiceMock->shouldReceive('genPrivatePathFromPublic')
-            ->with('')
-            ->andReturn('');
+        $contentDir = $this->tmpDir . DS . CONTENT_SUBDIR;
+        mkdir($contentDir, 0777, true);
+        file_put_contents($contentDir . '/ok.txt', 'hello');
 
-        $result = $this->service->generateStats('');
+        $lockedDir = $contentDir . '/locked';
+        mkdir($lockedDir, 0777);
+        file_put_contents($lockedDir . '/secret.txt', 'hidden');
+        chmod($lockedDir, 0000);
 
-        // Kills DecrementInteger: return 0 → return -1
-        // Kills IncrementInteger: return 0 → return 1
-        // Kills RemoveEarlyReturn: return 0 removed → falls through to populateLocalFileWithStats('')
-        $this->assertSame(0, $result);
+        \App\Models\Setting::updateStoragePath($this->tmpDir);
+        $realService = new LocalFileStatsService(new PathService());
+
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        // CATCH_GET_CHILD silently skips unreadable directories — no exception thrown.
+        // locked/ dir itself is listed (SELF_FIRST) but its children are not.
+        // secret.txt inside locked/ is never scanned: this is silent data loss.
+        $result = $realService->generateStats('');
+
+        $this->assertEquals(2, $result, 'ok.txt + locked/ dir counted; secret.txt inside locked/ silently skipped');
+        $this->assertDatabaseHas('local_files', ['filename' => 'ok.txt']);
+        $this->assertDatabaseHas('local_files', ['filename' => 'locked']);
+        $this->assertDatabaseMissing('local_files', ['filename' => 'secret.txt']);
+
+        chmod($lockedDir, 0755);
     }
 
     // ── getFileItemDetails: kills mutations line 84 (DecrementInteger, IncrementInteger, RemoveEarlyReturn) ──

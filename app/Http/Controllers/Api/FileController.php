@@ -18,6 +18,7 @@ use App\Services\LocalFileStatsService;
 use App\Services\PathService;
 use App\Helpers\ResponseHelper;
 use App\Services\UploadService;
+use App\Traits\FlashMessages;
 use App\Traits\HasJsonPagination;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -26,6 +27,8 @@ use Exception;
 class FileController extends Controller
 {
     use HasJsonPagination;
+    use FlashMessages;
+
     protected PathService $pathService;
     protected LocalFileStatsService $localFileStatsService;
     protected UploadService $uploadService;
@@ -35,14 +38,15 @@ class FileController extends Controller
     protected FileSaveService $fileSaveService;
 
     public function __construct(
-        PathService $pathService,
+        PathService           $pathService,
         LocalFileStatsService $localFileStatsService,
-        UploadService $uploadService,
-        FileDeleteService $fileDeleteService,
-        FileMoveService $fileMoveService,
-        FileRenameService $fileRenameService,
-        FileSaveService $fileSaveService,
-    ) {
+        UploadService         $uploadService,
+        FileDeleteService     $fileDeleteService,
+        FileMoveService       $fileMoveService,
+        FileRenameService     $fileRenameService,
+        FileSaveService       $fileSaveService,
+    )
+    {
         $this->pathService = $pathService;
         $this->localFileStatsService = $localFileStatsService;
         $this->uploadService = $uploadService;
@@ -176,17 +180,19 @@ class FileController extends Controller
         }
 
         $rootPath = $this->pathService->getStorageFolderPath();
-        $filesDeleted = $this->fileDeleteService->deleteFiles(
-            LocalFile::getByIds([$id]),
-            $rootPath
-        );
 
-        $file->delete();
+        $result = $this->fileDeleteService->deleteFiles(LocalFile::getByIds([$id]), $rootPath);
 
-        return response()->json([
-            'message' => 'Files deleted',
-            'deleted' => $filesDeleted,
-        ]);
+        if (!$result['deleted']) {
+            return ResponseHelper::json($this->buildDelFailureMessage($result), false, 500);
+        }
+
+        $message = "Deleted " . count($result['deleted']) . " files";
+        if (count($result['unreadable']) || count($result['readonly'])) {
+            $message .= '. ' . $this->buildDelFailureMessage($result);
+        }
+
+        return ResponseHelper::json($message);
     }
 
     public function move(MoveFilesRequest $request): JsonResponse

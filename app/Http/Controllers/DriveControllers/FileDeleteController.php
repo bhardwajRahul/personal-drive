@@ -40,15 +40,18 @@ class FileDeleteController extends Controller
             return $this->error('No valid files in database. Try a ReSync first');
         }
 
-        $filesDeleted = $this->fileDeleteService->deleteFiles($localFiles, $rootPath);
+        $result = $this->fileDeleteService->deleteFiles($localFiles, $rootPath);
 
-        // delete files from database
-        $response = $localFiles->delete();
-
-        if (!$response || !$filesDeleted) {
-            return $this->error('Could not delete files');
+        if (!$result['deleted']) {
+            return $this->error($this->buildDelFailureMessage($result));
         }
 
-        return $this->success('Deleted ' . $filesDeleted . ' files');
+        $message = "Deleted ".count($result['deleted'])." files";
+        if (count($result['unreadable']) || count($result['readonly'])) {
+            $message .= '. ' . $this->buildDelFailureMessage($result);
+        }
+
+        return $this->success($message);
     }
+
 }

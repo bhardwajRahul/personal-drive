@@ -168,7 +168,12 @@ class FileDeleteServiceTest extends TestCase
         $builder = LocalFile::whereIn('id', [$dir->id]);
         $filesDeleted = $this->fileDeleteService->deleteFiles($builder, sys_get_temp_dir());
 
-        $this->assertSame(1, $filesDeleted);
+        $this->assertArrayHasKey('deleted', $filesDeleted);
+        $this->assertArrayHasKey('unreadable', $filesDeleted);
+        $this->assertArrayHasKey('readonly', $filesDeleted);
+        $this->assertCount(1, $filesDeleted['deleted']);
+        $this->assertCount(0, $filesDeleted['unreadable']);
+        $this->assertCount(0, $filesDeleted['readonly']);
         $this->assertDirectoryDoesNotExist($this->tempDir . $tempSubDir);
     }
 
@@ -190,7 +195,12 @@ class FileDeleteServiceTest extends TestCase
         $builder = LocalFile::whereIn('id', [$file->id]);
         $filesDeleted = $this->fileDeleteService->deleteFiles($builder, $this->tempDir);
 
-        $this->assertSame(0, $filesDeleted);
+        $this->assertArrayHasKey('deleted', $filesDeleted);
+        $this->assertArrayHasKey('unreadable', $filesDeleted);
+        $this->assertArrayHasKey('readonly', $filesDeleted);
+        $this->assertCount(0, $filesDeleted['deleted']);
+        $this->assertCount(0, $filesDeleted['unreadable']);
+        $this->assertCount(1, $filesDeleted['readonly']);
         $this->assertFileExists($outsideDir . DS . $outsideFile);
 
         @unlink($outsideDir . DS . $outsideFile);
@@ -222,7 +232,12 @@ class FileDeleteServiceTest extends TestCase
         $builder = LocalFile::whereIn('id', [$file->id]);
         $filesDeleted = $this->fileDeleteService->deleteFiles($builder, $storageRoot);
 
-        $this->assertSame(0, $filesDeleted);
+        $this->assertArrayHasKey('deleted', $filesDeleted);
+        $this->assertArrayHasKey('unreadable', $filesDeleted);
+        $this->assertArrayHasKey('readonly', $filesDeleted);
+        $this->assertCount(0, $filesDeleted['deleted']);
+        $this->assertCount(0, $filesDeleted['unreadable']);
+        $this->assertCount(1, $filesDeleted['readonly']);
         $this->assertFileExists($symlinkPath);
         $this->assertFileExists($outsideDir . DS . $targetFile);
 
@@ -248,7 +263,12 @@ class FileDeleteServiceTest extends TestCase
         $builder = LocalFile::whereIn('id', [$dir->id]);
         $filesDeleted = $this->fileDeleteService->deleteFiles($builder, $this->tempDir);
 
-        $this->assertSame(0, $filesDeleted);
+        $this->assertArrayHasKey('deleted', $filesDeleted);
+        $this->assertArrayHasKey('unreadable', $filesDeleted);
+        $this->assertArrayHasKey('readonly', $filesDeleted);
+        $this->assertCount(0, $filesDeleted['deleted']);
+        $this->assertCount(0, $filesDeleted['unreadable']);
+        $this->assertCount(1, $filesDeleted['readonly']);
         $this->assertDirectoryExists($outsideDir);
 
         @rmdir($outsideDir);

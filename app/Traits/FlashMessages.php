@@ -40,4 +40,19 @@ trait FlashMessages
 
         return redirect()->route($route, $params);
     }
+
+    public function buildDelFailureMessage(array $result): string
+    {
+        $parts = [];
+
+        if ($count = count($result['unreadable'])) {
+            $parts[] = "{$count} could not be accessed (permission denied)";
+        }
+
+        if ($count = count($result['readonly'])) {
+            $parts[] = "{$count} could not be deleted (read-only)";
+        }
+
+        return implode('; ', $parts);
+    }
 }

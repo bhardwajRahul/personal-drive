@@ -73,6 +73,107 @@ class FileDeleteControllerTest extends BaseFeatureTest
         $response->assertSessionHas('message', 'Deleted 1 files');
         $this->assertDatabaseMissing('local_files', ['id' => $file->id]);
     }
+    public function test_delete_already_deleted(): void
+    {
+        // no chmod at all - the file is just gone from disk before we try
+        $this->uploadFile('', 'o/i/f.txt', 100);
+        $inner = LocalFile::where('filename', 'i')->first();
+
+        // simulate external deletion, bypassing the app
+        Storage::disk('local')->deleteDirectory('o/i');
+
+        $response = $this->post(route('drive.delete-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$inner->id],
+        ]);
+
+        $response->assertSessionHas('status', true);
+        $response->assertSessionHas('message', 'Deleted 1 files');
+
+        $this->assertDatabaseMissing('local_files', ['id' => $inner->id]);
+    }
+
+    public function test_delete_partial_success(): void
+    {
+        $this->uploadFile('', 'o/i/f.txt', 100);       // will be blocked
+        $this->uploadFile('', 'o2/f2.txt', 100);       // will succeed
+
+        $outer = LocalFile::where('filename', 'o')->first();
+        $inner = LocalFile::where('filename', 'i')->first();
+        $file2 = LocalFile::where('filename', 'f2.txt')->first();
+
+        chmod($outer->getPrivatePathNameForFile(), 0555);
+
+        $response = $this->post(route('drive.delete-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$inner->id, $file2->id],
+        ]);
+
+        $response->assertSessionHas('status', true);
+        $response->assertSessionHas('message', 'Deleted 1 files. 1 could not be deleted (read-only)');
+
+        $this->assertDatabaseHas('local_files', ['id' => $inner->id]);
+        $this->assertDatabaseMissing('local_files', ['id' => $file2->id]);
+
+        chmod($outer->getPrivatePathNameForFile(), 0755);
+    }
+
+    public function test_delete_readonly(): void
+    {
+        $this->uploadFile('', 'o/i/f.txt', 100);
+        $outer = LocalFile::where('filename', 'o')->first();
+        $inner = LocalFile::where('filename', 'i')->first();
+        chmod($outer->getPrivatePathNameForFile(), 0555);
+
+        $response = $this->post(route('drive.delete-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$inner->id],
+        ]);
+
+        $response->assertSessionHas('status', false);
+        $response->assertSessionHas('message', '1 could not be deleted (read-only)');
+
+        $this->assertDatabaseHas('local_files', ['id' => $inner->id]);
+        $this->assertDirectoryExists($inner->getPrivatePathNameForFile());
+
+        chmod($outer->getPrivatePathNameForFile(), 0755);
+    }
+
+    public function test_delete_unreadable(): void
+    {
+        $this->uploadFile('', 'o/i/f.txt', 100);
+        $outer = LocalFile::where('filename', 'o')->first();
+        $inner = LocalFile::where('filename', 'i')->first();
+        chmod($outer->getPrivatePathNameForFile(), 0444);
+
+        $response = $this->post(route('drive.delete-files'), [
+            '_token' => csrf_token(),
+            'fileList' => [$inner->id],
+        ]);
+
+        $response->assertSessionHas('status', false);
+        $response->assertSessionHas('message', '1 could not be accessed (permission denied)');
+
+        $this->assertDatabaseHas('local_files', ['id' => $inner->id]);
+
+        chmod($outer->getPrivatePathNameForFile(), 0755);
+        $this->assertDirectoryExists($inner->getPrivatePathNameForFile());
+    }
+
+    protected function tearDown(): void
+    {
+        $path = Storage::disk('local')->path('storage_personaldrive/readonly');
+        $path1 = Storage::disk('local')->path('storage_personaldrive/o');
+        if (file_exists($path)) {
+            chmod($path, 0755); // restore before Laravel/PHPUnit tries to clean up
+        }
+        if (file_exists($path1)) {
+            chmod($path1, 0755); // restore before Laravel/PHPUnit tries to clean up
+            @rmdir($path1);
+
+        }
+        parent::tearDown();
+    }
 
 
 
